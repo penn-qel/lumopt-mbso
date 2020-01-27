@@ -25,7 +25,7 @@ class ConstrainedOptimizer(ScipyOptimizers):
 	:param concurrent_adjoint: 	Boolean flag telling whether or not adjoint should be solved concurrently with forward sim
 
 	'''
-	def __init__(self, max_iter, method = 'SLSQP', constraints = None, scaling_factor = 1.0, fom_scaling_factor = None, scale_initial_gradient_to = 0, penalty_fun = None, penalty_jac = None, ftol = 1.0e-6, pgtol = 1.0e-12, concurrent_adjoint = True):
+	def __init__(self, max_iter, method = 'SLSQP', constraints = None, scaling_factor = 1.0, pgtol = 1.0e-5, ftol = 1.0e-12, scale_initial_gradient_to = 0, penalty_fun = None, penalty_jac = None):
 		super().__init__(max_iter = max_iter,
 						method = method,
 						scaling_factor = scaling_factor,
@@ -34,8 +34,6 @@ class ConstrainedOptimizer(ScipyOptimizers):
 						scale_initial_gradient_to = scale_initial_gradient_to,
 						penalty_fun = penalty_fun,
 						penalty_jac = penalty_jac)
-		self.concurrent_adjoint = bool(concurrent_adjoint)
-		self.fom_scaling_factor = fom_scaling_factor
 		self.constraints = constraints
 
 	def run(self):
@@ -58,9 +56,9 @@ class ConstrainedOptimizer(ScipyOptimizers):
 
 
 	def concurrent_adjoint_solves(self):
-		return self.concurrent_adjoint
+		return self.method in ['L-BFGS-B','BFGS', 'SLSQP']
 
-	def reset_start_params(self, start_params, scale_initial_gradient_to):
+	'''def reset_start_params(self, start_params, scale_initial_gradient_to):
 		#This function is responsible for scaling the start params and the FOM
 		#This bypasses the FOM scaling if is passed as an input
 		self.scale_initial_gradient_to = scale_initial_gradient_to
@@ -71,4 +69,4 @@ class ConstrainedOptimizer(ScipyOptimizers):
 					raise UserWarning("bounds are required to scale the initial gradient.")
 				self.auto_detect_scaling(scale_initial_gradient_to)
 			else:
-				self.fom_scaling_factor = 1
+				self.fom_scaling_factor = 1'''

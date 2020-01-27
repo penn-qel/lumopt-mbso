@@ -1,0 +1,29 @@
+#Select monitors desired for data processing
+setnamed("cross-section", "enabled", 1);
+setnamed("bottomfields", "enabled", 1);
+setnamed("focal", "enabled", 1);
+setnamed("opt_fields", "enabled", 0);
+setnamed("fom", "enabled", 0);
+
+#Run simulation
+run;
+
+Efield = getresult("cross-section", "E");
+Esurf = getresult("bottomfields", "E");
+Efocus = getresult("focal", "E");
+Hfocus = getresult("focal", "H");
+f = getresult("focal", "f");
+sp = sourcepower(f);
+
+if(getnamed('focal', 'monitor type') == 'Linear X') {
+    depth = abs(getnamed('focal', 'y'));
+} else {
+    depth = abs(getnamed("focal", "z"));
+}
+diameter = getnamed("FDTD", "x span");
+#index = getresult('fom_index', 'index');
+#n = mean(index.index_x);
+n = 2.4;
+NA = n*sin(atan(diameter/(2*depth)));
+
+matlabsave("results.mat", Efield, Esurf, Efocus, Hfocus, sp, NA);

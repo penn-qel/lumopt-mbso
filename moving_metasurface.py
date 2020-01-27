@@ -243,9 +243,9 @@ class MovingMetasurface2D(Geometry):
 
         cons = []
         #Iterate across all pillars
-        for i in enumerate(self.init_pos):
+        for i, value in enumerate(self.init_pos):
             #Skip last element
-            if i == self.init_pos.size - 1:
+            if i == self.init_pos.size - 2:
                 break
 
             #Define callable constraint function for optimization algorithm

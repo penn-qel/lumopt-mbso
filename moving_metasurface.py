@@ -33,7 +33,7 @@ class MovingMetasurface2D(Geometry):
 
     """
 
-    def __init__(self, posx, init_widths, min_feature_size, y, h, eps_in, eps_out, height_precision = 10, dx = 1.0e-9):
+    def __init__(self, posx, init_widths, min_feature_size, y, h, eps_in, eps_out, height_precision = 10, dx = 1.0e-9, scaling_factor = 1):
         self.init_pos = posx
         self.widths = init_widths
         self.offsets = np.zeros(posx.size)
@@ -52,7 +52,7 @@ class MovingMetasurface2D(Geometry):
         self.gradients = list()
 
         self.min_feature_size = float(min_feature_size)
-
+        self.scaling_factor = scaling_factor
         self.bounds = self.calculate_bounds()
 
     def add_geo(self, sim, params, only_update):
@@ -63,7 +63,7 @@ class MovingMetasurface2D(Geometry):
             widths = self.widths
             offsets = self.offsets
         else:
-            offsets, widths = MovingMetasurface2D.split_params(params)
+            offsets, widths = MovingMetasurface2D.split_params(params, self.scaling_factor)
 
         #Saves current data to a .mat file so that structure group script can access it
         #Building many objects within a structure group script is MUCH faster than individually
@@ -86,7 +86,7 @@ class MovingMetasurface2D(Geometry):
 
     def update_geometry(self, params, sim = None):
         '''Sets the widths. Allow option of also setting positions in future?'''
-        self.offsets, self.widths = MovingMetasurface2D.split_params(params)
+        self.offsets, self.widths = MovingMetasurface2D.split_params(params, self.scaling_factor)
 
     def calculate_gradients(self, gradient_fields):
         '''Gradients are calculated by increasing the radius of each pillar'''
@@ -100,7 +100,7 @@ class MovingMetasurface2D(Geometry):
         return self.gradients[-1]
 
     def get_current_params(self):
-        return MovingMetasurface2D.combine_params(self.offsets, self.widths)
+        return MovingMetasurface2D.combine_params(self.offsets, self.widths, self.scaling_factor)
 
     def save_to_mat(self, widths, pos):
         '''Saves core parameters to .mat file'''
@@ -217,9 +217,9 @@ class MovingMetasurface2D(Geometry):
         '''Calculates the bounds given the minimum feature size'''
         '''Bounds should be [min_feature_size, inf] for widths, [-inf, inf] for offsets'''
 
-        width_bounds = [(self.min_feature_size, np.inf)] * self.widths.size
+        width_bounds = [(self.min_feature_size*self.scaling_factor, np.inf)] * self.widths.size
         offset_bounds = [(-np.inf, np.inf)] * self.init_pos.size
-        return offset_bounds + width_bounds
+        return (offset_bounds + width_bounds)
 
     def build_constraints(self):
         '''Builds the constraint objects given the minimum feature size to ensure minimum gap between structures'''
@@ -264,10 +264,10 @@ class MovingMetasurface2D(Geometry):
         return cons
 
     @staticmethod
-    def split_params(params):
-        return np.split(params, 2)
+    def split_params(params, scaling_factor = 1):
+        return np.split(params/scaling_factor, 2)
 
     @staticmethod
-    def combine_params(offsets, widths):
-        return np.concatenate((offsets, widths))
+    def combine_params(offsets, widths, scaling_factor = 1):
+        return np.concatenate((offsets, widths))*scaling_factor
         

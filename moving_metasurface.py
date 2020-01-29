@@ -191,7 +191,7 @@ class MovingMetasurface2D(Geometry):
         return np.array(derivs).flatten()
 
     def pos_derivative(self, x0, w, gradient_fields):
-        '''Calculates derivative for a particular pillar offset'''
+        '''Calculates derivative for shifting a particular pillar'''
         
         #Determine right and left boundaries of simulation region
         simulation_right = self.simulation_span / 2
@@ -235,7 +235,6 @@ class MovingMetasurface2D(Geometry):
         #Calculates inequality value for two pillars (constraint requires result is greater than zero)
         def general_constraint(widths, pos, i, j, min_feature_size):
             return (pos[j] - pos[i]) - 0.5*(widths[j] + widths[i]) - min_feature_size
-            #return (pos[j] - pos[i]) - 0.5*(widths[j] + widths[i]) - min_feature_size
 
         #Returns Jacobian for a particular constraint
         def general_jacobian(params, i, j):
@@ -258,9 +257,9 @@ class MovingMetasurface2D(Geometry):
 
             #Define callable constraint function for optimization algorithm
             def constraint(x):
-                #First half of array is offsets, second half is widths
+                #Input x will be scaled version of params. We keep the parameters scaled, and so scale up the other constants as well
                 offsets, widths = np.split(x,2)
-                return general_constraint(widths, offsets + self.init_pos, i, i+1, self.min_feature_size)
+                return general_constraint(widths, offsets + self.init_pos*self.scaling_factor, i, i+1, self.min_feature_size*self.scaling_factor)
 
             #Callable jacobian for this constraint
             def jacobian(x):

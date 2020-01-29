@@ -33,7 +33,7 @@ class MovingMetasurface2D(Geometry):
 
     """
 
-    def __init__(self, posx, init_widths, min_feature_size, y, h, eps_in, eps_out, height_precision = 10, dx = 1.0e-9, scaling_factor = 1):
+    def __init__(self, posx, init_widths, min_feature_size, y, h, eps_in, eps_out, height_precision = 10, dx = 1.0e-9, scaling_factor = 1, simulation_span = 100e-6):
         self.init_pos = posx
         self.widths = init_widths
         self.offsets = np.zeros(posx.size)
@@ -54,6 +54,7 @@ class MovingMetasurface2D(Geometry):
         self.min_feature_size = float(min_feature_size)
         self.scaling_factor = scaling_factor
         self.bounds = self.calculate_bounds()
+        self.simulation_span = float(simulation_span)
 
     def add_geo(self, sim, params, only_update):
         ''' Adds the geometry to a Lumerical simulation'''
@@ -159,6 +160,10 @@ class MovingMetasurface2D(Geometry):
 
     def pillar_derivative(self, x0, w, gradient_fields):
         '''Calculates derivative for a particular pillar width'''
+        
+        #Determine right and left boundaries of simulation region
+        simulation_right = self.simulation_span / 2
+        simulation_left = -1*simulation_right
 
         #Parameterize surface by z
         yv = np.linspace(self.y,self.y + self.h, self.height_precision)
@@ -177,8 +182,8 @@ class MovingMetasurface2D(Geometry):
                 #Calculate for each edge
                 norm1 = np.array([1, 0, 0])
                 norm2 = np.array([-1, 0, 0])
-                integrandright = integrand_fun(x0+w/2,y,0,wl,norm1,eps_in[idx], eps_out[idx])
-                integrandleft = integrand_fun(x0-w/2,y,0,wl,norm2, eps_in[idx], eps_out[idx])
+                integrandright = integrand_fun(x0+w/2,y,0,wl,norm1,eps_in[idx], eps_out[idx]) if (x0 + w/2 < simulation_right and x0 + w/2 > simulation_left) else 0
+                integrandleft = integrand_fun(x0-w/2,y,0,wl,norm2, eps_in[idx], eps_out[idx]) if (x0 - w/2 < simulation_right and x0 - w/2 > simulation_left) else 0
                 integrand_per_wl[i] = (integrandleft + integrandright) / 2
             #Perform integral for each wavelength
             derivs.append(np.trapz(y = integrand_per_wl, x = yv))
@@ -187,7 +192,10 @@ class MovingMetasurface2D(Geometry):
 
     def pos_derivative(self, x0, w, gradient_fields):
         '''Calculates derivative for a particular pillar offset'''
-
+        
+        #Determine right and left boundaries of simulation region
+        simulation_right = self.simulation_span / 2
+        simulation_left = -1*simulation_right
         #Parameterize surface by z
         yv = np.linspace(self.y,self.y + self.h, self.height_precision)
 
@@ -205,8 +213,8 @@ class MovingMetasurface2D(Geometry):
                 #Calculate for each edge
                 norm1 = np.array([1, 0, 0])
                 norm2 = np.array([1, 0, 0])
-                integrandright = integrand_fun(x0+w/2,y,0,wl,norm1,eps_in[idx], eps_out[idx])
-                integrandleft = integrand_fun(x0-w/2,y,0,wl,norm2, eps_in[idx], eps_out[idx])
+                integrandright = integrand_fun(x0+w/2,y,0,wl,norm1,eps_in[idx], eps_out[idx]) if (x0 + w/2 < simulation_right and x0 + w/2 > simulation_left) else 0
+                integrandleft = integrand_fun(x0-w/2,y,0,wl,norm2, eps_in[idx], eps_out[idx]) if (x0 - w/2 < simulation_right and x0 - w/2 > simulation_left) else 0
                 integrand_per_wl[i] = (integrandleft + integrandright) / 2
             #Perform integral for each wavelength
             derivs.append(np.trapz(y = integrand_per_wl, x = yv))

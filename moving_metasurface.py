@@ -231,23 +231,6 @@ class MovingMetasurface2D(Geometry):
 
     def build_constraints(self):
         '''Builds the constraint objects given the minimum feature size to ensure minimum gap between structures'''
-
-        #Calculates inequality value for two pillars (constraint requires result is greater than zero)
-        def general_constraint(widths, pos, i, j, min_feature_size):
-            return (pos[j] - pos[i]) - 0.5*(widths[j] + widths[i]) - min_feature_size
-
-        #Returns Jacobian for a particular constraint
-        def general_jacobian(params, i, j):
-            num_objects = params.size//2
-            jac = np.zeros(params.size)
-
-            jac[i] = -1
-            jac[j] = 1
-            jac[i+num_objects] = -0.5
-            jac[j+num_objects] = -0.5
-
-            return jac
-
         cons = []
         #Iterate across all pillars
         for i, value in enumerate(self.init_pos):
@@ -255,18 +238,12 @@ class MovingMetasurface2D(Geometry):
             if i == self.init_pos.size - 2:
                 break
 
-            #Define callable constraint function for optimization algorithm
-            def constraint(x):
-                #Input x will be scaled version of params. We keep the parameters scaled, and so scale up the other constants as well
-                offsets, widths = np.split(x,2)
-                return general_constraint(widths, offsets + self.init_pos*self.scaling_factor, i, i+1, self.min_feature_size*self.scaling_factor)
-
-            #Callable jacobian for this constraint
-            def jacobian(x):
-                return general_jacobian(x, i, i+1)
-
             #Add to list of constraints
-            cons.append({'type':'ineq', 'fun':constraint, 'jac': jacobian})
+            cons.append(
+                {'type':'ineq', 
+                'fun':lambda x,i: MovingMetasurface2D.general_constraint(x[len(x)//2:], x[:len(x)//2] + self.init_pos*self.scaling_factor, i, i+1, self.min_feature_size*self.scaling_factor), 
+                'jac':lambda x,i: MovingMetasurface2D.general_jacobian(x, i, i+1),
+                'args': (i,)})
 
         return cons
 
@@ -277,4 +254,21 @@ class MovingMetasurface2D(Geometry):
     @staticmethod
     def combine_params(offsets, widths, scaling_factor = 1):
         return np.concatenate((offsets, widths))*scaling_factor
-        
+
+    #Calculates inequality value for two pillars (constraint requires result is greater than zero)
+    @staticmethod
+    def general_constraint(widths, pos, i, j, min_feature_size):
+        return (pos[j] - pos[i]) - 0.5*(widths[j] + widths[i]) - min_feature_size
+
+    #Returns Jacobian for a particular constraint
+    @staticmethod
+    def general_jacobian(params, i, j):
+        num_objects = params.size//2
+        jac = np.zeros(params.size)
+
+        jac[i] = -1
+        jac[j] = 1
+        jac[i+num_objects] = -0.5
+        jac[j+num_objects] = -0.5
+
+        return jac

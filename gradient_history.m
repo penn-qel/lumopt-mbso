@@ -41,15 +41,17 @@ for i = 1:iterations
     for j = 1:length(widths)
         centerpos = x(j);
         width = widths(j);
-        rectangle('Position', [centerpos-width/2 0 width height], 'FaceColor', colorVec(Y(j),:), 'LineStyle', 'none');
+        rectangle('Position', [centerpos-width/2 3*height width height], 'FaceColor', 'k', 'LineStyle', 'none');
+        rectangle('Position', [centerpos-width/2 1.5*height width height], 'FaceColor', colorVec(Y(j),:), 'LineStyle', 'none');
+        rectangle('Position', [centerpos-width/2 0 width height], 'FaceColor', colorVec(Z(j),:), 'LineStyle', 'none');
     end
     minpos = (min(init_pos) - 1.1*max(max(params)));
     maxpos = (max(init_pos) + 1.1*max(max(params)));
     figwidth = maxpos-minpos;
-    figheight = 1.5*height;
+    figheight = 5*height;
     aspect = figwidth/figheight;
     
-    text(0, height*1.3, strcat('Iteration #', num2str(i)));
+    text(0, height*4.5, strcat('Iteration #', num2str(i)));
     
     colormap(colorVec);
     caxis([-maxgrad maxgrad])
@@ -59,7 +61,7 @@ for i = 1:iterations
     yticks([])
     set(gca, 'YTickLabel', {' '})
     set(gca, 'ycolor', 'none')
-    pixelheight = 20;
+    pixelheight = 75;
     set(gcf,'Position',[100,100,100+pixelheight*aspect, 100+pixelheight])
     F(i) = getframe(gcf);
     writeVideo(v, F(i));

@@ -212,10 +212,10 @@ class MovingMetasurface2D(Geometry):
             for i, y in enumerate(yv):
                 #Calculate for each edge
                 norm1 = np.array([1, 0, 0])
-                norm2 = np.array([1, 0, 0])
+                norm2 = np.array([-1, 0, 0])
                 integrandright = integrand_fun(x0+w/2,y,0,wl,norm1,eps_in[idx], eps_out[idx]) if (x0 + w/2 < simulation_right and x0 + w/2 > simulation_left) else 0
                 integrandleft = integrand_fun(x0-w/2,y,0,wl,norm2, eps_in[idx], eps_out[idx]) if (x0 - w/2 < simulation_right and x0 - w/2 > simulation_left) else 0
-                integrand_per_wl[i] = (integrandleft + integrandright) / 2
+                integrand_per_wl[i] = (integrandright - integrandleft) / 2
             #Perform integral for each wavelength
             derivs.append(np.trapz(y = integrand_per_wl, x = yv))
 

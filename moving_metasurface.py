@@ -272,3 +272,126 @@ class MovingMetasurface2D(Geometry):
         jac[j+num_objects] = -0.5
 
         return jac
+
+
+class MovingMetasurfaceAnnulus(MovingMetasurface2D):
+
+    """
+    Defines a 3D metasurface composed of concentric rings defined by their widths and positions
+
+    :param posr:                Array of shape (N,1) defining initial central r-coordinates of each ring
+    :param widths:              Array of shape (N,1) defining initial widths of each ring
+    :param min_feature_size:    Minimum ring width and minimum gap between ring
+    :param z:                   z-position of bottom of metasurface 
+    :param h:                   height of metasurface
+    :param height_precision:    Number of points along height of ring to calculate gradient
+    :param eps_in:              Permittivity of the rings
+    :param eps_out:             Permittivity of the material around the rings
+    :param dx:                  Step size for computing FOM gradient using permittivity perturbations
+
+    """
+
+    def __init__(self, posr, init_widths, min_feature_size, z, h, eps_in, eps_out, height_precision = 10, dx = 1.0e-9, scaling_factor = 1, simulation_diameter = 100e-6):
+        super().__init__(posx = posr,
+                         init_widths = init_widths,
+                         min_feature_size = min_feature_size,
+                         y = z,
+                         h = h,
+                         eps_in = eps_in,
+                         eps_out = eps_out,
+                         height_precision = height_precision,
+                         dx = dx,
+                         scaling_factor = scaling_factor,
+                         simulation_span = simulation_diameter)
+
+    def add_geo(self, sim, params, only_update):
+        ''' Adds the geometry to a Lumerical simulation'''
+
+        groupname = 'Rings'
+        if params is None:
+            widths = self.widths
+            offsets = self.offsets
+        else:
+            offsets, widths = MovingMetasurface2D.split_params(params, self.scaling_factor)
+
+        #Saves current data to a .mat file so that structure group script can access it
+        #Building many objects within a structure group script is MUCH faster than individually
+        self.save_to_mat(widths, self.init_pos + offsets)
+        sim.fdtd.switchtolayout()
+
+        if not only_update:
+            sim.fdtd.addstructuregroup()
+            sim.fdtd.set('name', groupname)
+            #sim.fdtd.adduserprop('index', 0, self.n)
+            self.counter = 0
+            sim.fdtd.adduserprop('counter', 0, 0)
+            sim.fdtd.set('x', 0)
+            sim.fdtd.set('y', 0)
+            sim.fdtd.set('z', self.z)
+        self.counter += 1
+        sim.fdtd.select(groupname)
+        self.create_script(sim, groupname, only_update)
+        #Change trivial parameter to force structure to update
+        sim.fdtd.set('counter', self.counter)
+
+    def save_to_mat(self, widths, pos):
+        '''Saves core parameters to .mat file'''
+        scipy.io.savemat('params.mat', mdict={'r': pos, 'height': self.h, 'widths': widths})
+
+    def create_script(self, sim, groupname = 'Pillars', only_update = False):
+        '''Writes structure group script'''
+        struct_script = ('deleteall;\n'
+            'data = matlabload("params.mat");\n'
+            'for(i=1:length(r)) {\n'
+                'addring;\n'
+                'set("name", "ring_"+num2str(i));\n'
+                'set("x", 0);\n'
+                'set("y", 0);\n'
+                'set("inner radius", r(i)-widths(i)/2);\n'
+                'set("outer radius", r(i)+widths(i)/2);\n'
+                'set("z min", 0);\n'
+                'set("z max", height);\n'
+                'set("theta start", 0);\n'
+                'set("theta stop", 0);\n')
+
+        sim.fdtd.select(groupname)
+        if self.eps_in.mesh_order:
+            struct_script += 'set("override mesh order from material database", true);\nset("mesh order", mesh_order);\n'
+            if not only_update:
+                sim.fdtd.adduserprop('mesh_order', 0, self.eps_in.mesh_order)
+
+        if self.eps_in.name == str('<Object defined dielectric>'):
+            struct_script += 'set("index", index);\n}'
+            if not only_update:
+                sim.fdtd.adduserprop('index', 0, np.sqrt(self.eps_in.base_epsilon))
+            sim.fdtd.set('script', struct_script)
+        else:
+            struct_script += 'set("material", mat);\n}'
+            if not only_update:
+                sim.fdtd.adduserprop('mat', 5, self.eps_in.name)
+
+                #Set permittivity parameter in material (normally done in set_script function)
+                self.eps_in.wavelengths = Material.get_wavelengths(sim)
+                freq_array = sp.constants.speed_of_light / self.eps_in.wavelengths.asarray()
+                fdtd_index = sim.fdtd.getfdtdindex(self.eps_in.name, freq_array, float(freq_array.min()), float(freq_array.max()))
+                self.eps_in.permittivity = np.asarray(np.power(fdtd_index, 2)).flatten()
+            sim.fdtd.set('script', struct_script)
+
+    def calculate_gradients(self, gradient_fields):
+        raise UserWarning("Explicit gradient calculation not implemented. Use deps")
+
+    def build_constraints(self):
+    	#Same constraints as before, with one additional one ensuring that the innermost radius is positive
+    	cons = super().build_constraints()
+    	def jacobian(x):
+    		jac = np.zeros(x.size)
+    		jac[0] = 1
+    		jac[x.size//2] = -0.5
+    		return jac
+
+    	cons.append(
+    		'type':'ineq',
+    		'fun':lambda x: x[0] + self.init_pos[0]*self.scaling_factor - x[len(x)//2] / 2,
+    		'jac':lambda x:jacobian(x))
+
+    	return cons

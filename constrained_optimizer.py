@@ -14,7 +14,6 @@ class ConstrainedOptimizer(ScipyOptimizers):
 	:param constraints: 		List of dictionaries defining constraints for SLSQP
 	:param scaling_factor 		scalar or vector of same length as optimization parameters, typically used to scale
 								magnitudes between zero and one
-	:param fom_scaling_factor 	Scaling factor for FOM to increase gradient magnitudes
 	:param scale_initial_gradient_to: 	enforces rescaling of gradient to change optimization parameters by at least this much,
 										the default value of zero disables automatically scaling
 	:param penalty_fun: 		penalty function to be added to the figure of merit: it must be a function

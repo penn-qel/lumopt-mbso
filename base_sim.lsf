@@ -7,20 +7,20 @@ clear;
 redrawoff; #disable GUI updates
 
 #PARAMETERS
-xspan = 100e-6; #simulation span, centered at 0
-yspan = 100e-6;
+xspan = 30e-6; #simulation span, centered at 0
+yspan = 30e-6;
 ztop = 1e-6; #source location, top of sim
-zbottom = -0.5e-6; #fom location, bottom of sim
+zbottom = -20e-6; #fom location, bottom of sim
 wlmin = 600e-9;
 wlmax = 800e-9;
-freqpoints = 3;
+freqpoints = 11;
 nd = 2.4;
 surf_height = 0.5e-6; #height of metasurface. 0 < z < surf_height
 meshx = 0.03e-6; #x mesh size in opt region
 meshy = 0.03e-6; #y mesh size in opt regiom
 meshz = 0.025e-6; #z mesh size in opt region
-fomspanx = 1e-6; #x/y span of fom monitor
-fomspany = 1e-6;
+fomspanx = 30e-6; #x/y span of fom monitor
+fomspany = 30e-6;
 
 #Define simulation region
 addfdtd;
@@ -49,7 +49,7 @@ set("wavelength stop", wlmax);
 
 #Global monitor settings
 setglobalmonitor("frequency points", freqpoints);
-setglobalmonitor("use linear wavelength spacing", true);
+setglobalmonitor("use wavelength spacing", true);
 
 #Create bulk diamond
 addrect;

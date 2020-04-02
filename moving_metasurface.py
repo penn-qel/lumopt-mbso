@@ -303,6 +303,7 @@ class MovingMetasurfaceAnnulus(MovingMetasurface2D):
                          dx = dx,
                          scaling_factor = scaling_factor,
                          simulation_span = simulation_diameter)
+        self.z = self.y
 
     def add_geo(self, sim, params, only_update):
         ''' Adds the geometry to a Lumerical simulation'''
@@ -390,8 +391,8 @@ class MovingMetasurfaceAnnulus(MovingMetasurface2D):
     		return jac
 
     	cons.append(
-    		'type':'ineq',
+    		{'type':'ineq',
     		'fun':lambda x: x[0] + self.init_pos[0]*self.scaling_factor - x[len(x)//2] / 2,
-    		'jac':lambda x:jacobian(x))
+    		'jac':lambda x:jacobian(x)})
 
     	return cons

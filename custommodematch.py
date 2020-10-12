@@ -1,3 +1,10 @@
+################################################
+# Script: custommodematch.py
+
+# Description: This script defines a FOM object defined by an arbitrary profile
+# Author: Amelia Klein
+###############################################
+
 import sys
 import numpy as np
 import scipy as sp
@@ -7,6 +14,7 @@ import lumapi
 from lumopt.utilities.wavelengths import Wavelengths
 from lumopt.utilities.materials import Material
 from lumopt.lumerical_methods.lumerical_scripts import get_fields
+import time
 
 class CustomModeMatch(object):
 
@@ -202,6 +210,30 @@ class CustomModeMatch(object):
         #Esource = (1/epsilon*epsilon0)Hm* x n
         #Hsource = (1/mu0)Em* x n
         #modepower = Re(Em x Hm*) . n (power of FOM mode, not adjoint. But convenient to calculate it once now.)
+        '''
+        wlindices = np.arange(wavelengths.size)
+        print(wlindices)
+        xv, yv, zv, wlv = np.meshgrid(xarray[0:100], yarray[0:100], zarray, wlindices)
+        fE = np.vectorize(lambda x, y, z, idx: np.cross(np.conj(self.Hmodefun(x,y,z,wavelengths[idx])), norm)/(eps[idx]*scipy.constants.epsilon_0))
+        fH = np.vectorize(lambda x, y, z, idx: np.cross(np.conj(self.Emodefun(x,y,z,wavelengths[idx])), norm)/scipy.constants.mu_0)
+        Esource = fE(xv,yv,zv,wlv)
+        print(Esource)
+        print(Esource.shape)'''
+
+        #ans = np.cross(np.conj(self.Hmodefun(xarray[0],yarray[0],zarray[0],wavelengths[0])), norm)/(eps[0]*scipy.constants.epsilon_0)
+        #print(ans)
+        #print(type(ans))
+        #fE = lambda i,j,k,l: np.cross(np.conj(self.Hmodefun(xarray[i],yarray[j],zarray[k],wavelengths[l])), norm)/(eps[l]*scipy.constants.epsilon_0)
+        #fE = lambda i,j,k,l: i + j + k + l
+        #fH = lambda i,j,k,l: np.cross(np.conj(self.Emodefun(xarray[i],yarray[j],zarray[k],wavelengths[l])), norm)/scipy.constants.mu_0
+
+        #Esource = np.fromfunction(fE, (xarray.size, yarray.size, zarray.size, wavelengths.size), dtype=float)
+        #print(Esource.shape)
+        #Hsource = np.fromfunction(fH, (xarray.size, yarray.size, zarray.size, wavelengths.size), dtype=float)
+        #print(Hsource.shape)
+
+        start = time.time()
+
         modepower_vs_wl = np.zeros(wavelengths.size, dtype = np.complex128)
         for idx, wl in enumerate(wavelengths):
             modepower_vs_pos = np.zeros((xarray.size, yarray.size, zarray.size), dtype = np.complex128)
@@ -218,6 +250,7 @@ class CustomModeMatch(object):
             modepower_vs_wl[idx] = CustomModeMatch.integrate_xyz(modepower_vs_pos, xarray, yarray, zarray)
 
         self.modepower = modepower_vs_wl
+        print(time.time() - start)
 
         #Push field data into adjoint source
         lumapi.putMatrix(sim.fdtd.handle, 'x', xarray)

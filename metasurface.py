@@ -2,7 +2,7 @@
 # Script: metasurface.py
 
 # Description: This script defines a geometry object corresponding to a metasurface
-# Author: 
+# Author: Amelia Klein
 ###############################################
 
 import sys

@@ -1,3 +1,10 @@
+################################################
+# Script: metasurface.py
+
+# Description: This script replaces the optimizer wrapper to allow for linear constraints
+# Author: Amelia Klein
+###############################################
+
 import numpy as np
 import scipy as sp
 import scipy.optimize as spo

@@ -1,8 +1,16 @@
+################################################
+# Script: custom_modes.py
+
+# Description: This script defines a few helper functions to generate custom mode profiles
+# Author: Amelia Klein
+###############################################
+
 import sys
 import numpy as np
 import scipy as sp
 import lumapi
 from lumopt.lumerical_methods.lumerical_scripts import get_fields
+from lumopt.utilities.scipy_wrappers import wrapped_GridInterpolator
 
 def AiryDisk(depth, radius, index, x0, y0, z0, norm = np.array([0, 0, -1]), pol_norm = np.array([1, 0, 0])):
     #Depth = focal depth of lens
@@ -74,3 +82,20 @@ def InterpolateMonitor(filename, monitorname = 'fom'):
 
     fdtd.close()
     return fields.getfield, fields.getHfield
+
+def InterpolateMonitor2(filename, monitorname = 'fom'):
+    '''Returns interpolation functions on monitor data in a Lumerical sim file'''
+
+    fdtd = lumapi.FDTD(filename = filename, hide = False)
+
+    E = fdtd.getresult(monitorname, 'E')
+    H = fdtd.getresult(monitorname, 'H')
+    x = np.array([E['x']]).flatten()
+    y = np.array([E['y']]).flatten()
+    z = np.array([E['z']]).flatten()
+    Efield = E['E']
+    Hfield = H['H']
+    wl = sp.constants.c / (np.array(E['f']).flatten())
+
+    Em = wrapped_GridInterpolator((x,y,z,wl), Efield)
+    print(Em(0,0,-0.5e-6,700e-9))

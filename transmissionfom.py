@@ -2,7 +2,7 @@
 # Script: transmissionfom.py
 
 # Description: This script defines a FOM object based on the transmission through some portion of a DFT monitor
-# Author: 
+# Author: Amelia Klein
 ###############################################
 
 import sys

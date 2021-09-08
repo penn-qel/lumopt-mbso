@@ -17,6 +17,8 @@ from lumopt.geometries.geometry import Geometry
 from lumopt.utilities.materials import Material
 from lumopt.utilities.wavelengths import Wavelengths
 
+from datetime import datetime
+
 class MovingMetasurface2D(Geometry):
     """
         Defines a 2D metasurface composed of an array of pillars with given height
@@ -24,7 +26,7 @@ class MovingMetasurface2D(Geometry):
         :param posx:                Array of shape (N,1) defining initial x-coordinates of each pillar
         :param widths:              Array of shape (N,1) defining initial withds of each pillar
         :param min_feature_size:    Minimum pillar width and minimum gap between pillars
-        :param z:                   z-position of bottom of metasurface 
+        :param y:                   y-position of bottom of metasurface 
         :param h:                   height of metasurface
         :param height_precision:    Number of points along height of pillar to calculate gradient
         :param eps_in:              Permittivity of the pillars
@@ -90,15 +92,56 @@ class MovingMetasurface2D(Geometry):
         self.offsets, self.widths = MovingMetasurface2D.split_params(params, self.scaling_factor)
 
     def calculate_gradients(self, gradient_fields):
-        '''Gradients are calculated by increasing the radius of each pillar'''
-        posx = self.offsets + self.init_pos
-        width_gradients = list()
-        pos_gradients = list()
-        for i, w in enumerate(self.widths):
-            width_gradients.append(self.pillar_derivative(posx[i], w, gradient_fields))
-            pos_gradients.append(self.pos_derivative(posx[i], w, gradient_fields))
+        '''Gradients are calculated by increasing the radius of each pillar''' 
+
+        eps_in = self.eps_in.get_eps(gradient_fields.forward_fields.wl)
+        eps_out = self.eps_out.get_eps(gradient_fields.forward_fields.wl)
+        eps_0 = sp.constants.epsilon_0
+
+        start_time = datetime.now()
+        #Creates ordered arrays of x and y coordinates
+        x = np.stack(((self.offsets+self.init_pos-self.widths/2),(self.offsets + self.init_pos + self.widths/2) ), axis = -1).flatten()
+        print('x:')
+        print(x)
+        y = np.linspace(self.y, self.y + self.h, self.height_precision) 
+        print('y:')
+        print(y)
+        xv, yv = np.meshgrid(x, y, indexing ='ij')
+        print(xv.shape)
+        print(yv.shape)
+
+        Ef, Df = MovingMetasurface2D.interpolate_fields(xv, yv, 0, gradient_fields.forward_fields)
+        Ea, Da = MovingMetasurface2D.interpolate_fields(xv, yv, 0, gradient_fields.adjoint_fields)
+        print(Ef.shape)
+
+        #2N x values, N pos derivatives, N position derivatives
+        #Ef, etc shape is (2N*height_precision, 1, wl.size, 3)
+        Ef = np.reshape(Ef, (x.size, y.size, wl.size, 3))
+        Df = np.reshape(Df, (x.size, y.size, wl.size, 3))
+        Ea = np.reshape(Ea, (x.size, y.size, wl.size, 3))
+        Da = np.reshape(Da, (x.size, y.size, wl.size, 3))
+        print(Ef.shape)
+
+
+        integrand = np.real(2*eps_0*(eps_in - eps_out)*np.sum(Ef[:,:,:,1:]*Ea[:,:,:,1:], axis=-1) + 1/eps_0 *(1.0/eps_out - 1.0/eps_in)*Df[:,:,:,0]*Da[:,:,:,0]
+        print(integrand.shape)
+
+        lines = np.trapz(integrand, y, axis=1)
+        print(lines.shape)
+        lines = np.reshape(lines, (x.size/2, 2, wl.size))
+        print(lines.shape)
+
+        pos_deriv = (lines[:,0,:] + lines[:,1,:])/2
+        print(pos_deriv.shape)
+        width_deriv = (-lines[:,0,:] + lines[:,1,:])/2
+
         self.gradients.append(np.array(pos_gradients + width_gradients))
+        time_elapsed = datetime.now() - start_time
+        print('Time elapsed (hh:mm:ss) {}'.format(time_elapsed))
+
         return self.gradients[-1]
+
+        
 
     def get_current_params(self):
         return MovingMetasurface2D.combine_params(self.offsets, self.widths, self.scaling_factor)
@@ -158,68 +201,6 @@ class MovingMetasurface2D(Geometry):
         ax.set_ylabel('y (um)')
         return True
 
-    def pillar_derivative(self, x0, w, gradient_fields):
-        '''Calculates derivative for a particular pillar width'''
-        
-        #Determine right and left boundaries of simulation region
-        simulation_right = self.simulation_span / 2
-        simulation_left = -1*simulation_right
-
-        #Parameterize surface by z
-        yv = np.linspace(self.y,self.y + self.h, self.height_precision)
-
-        integrand_fun = gradient_fields.boundary_perturbation_integrand()
-        wavelengths = gradient_fields.forward_fields.wl
-        eps_in = self.eps_in.get_eps(wavelengths)
-        eps_out = self.eps_out.get_eps(wavelengths)
-
-        #Create a list of derivatives, calculated for each wavelength
-        derivs = list()
-        for idx, wl in enumerate(wavelengths):
-            #Integrate across surface of pillar for each wavelength
-            integrand_per_wl = np.zeros(yv.size)
-            for i, y in enumerate(yv):
-                #Calculate for each edge
-                norm1 = np.array([1, 0, 0])
-                norm2 = np.array([-1, 0, 0])
-                integrandright = integrand_fun(x0+w/2,y,0,wl,norm1,eps_in[idx], eps_out[idx]) if (x0 + w/2 < simulation_right and x0 + w/2 > simulation_left) else 0
-                integrandleft = integrand_fun(x0-w/2,y,0,wl,norm2, eps_in[idx], eps_out[idx]) if (x0 - w/2 < simulation_right and x0 - w/2 > simulation_left) else 0
-                integrand_per_wl[i] = (integrandleft + integrandright) / 2
-            #Perform integral for each wavelength
-            derivs.append(np.trapz(y = integrand_per_wl, x = yv))
-
-        return np.array(derivs).flatten()
-
-    def pos_derivative(self, x0, w, gradient_fields):
-        '''Calculates derivative for shifting a particular pillar'''
-        
-        #Determine right and left boundaries of simulation region
-        simulation_right = self.simulation_span / 2
-        simulation_left = -1*simulation_right
-        #Parameterize surface by z
-        yv = np.linspace(self.y,self.y + self.h, self.height_precision)
-
-        integrand_fun = gradient_fields.boundary_perturbation_integrand()
-        wavelengths = gradient_fields.forward_fields.wl
-        eps_in = self.eps_in.get_eps(wavelengths)
-        eps_out = self.eps_out.get_eps(wavelengths)
-
-        #Create a list of derivatives, calculated for each wavelength
-        derivs = list()
-        for idx, wl in enumerate(wavelengths):
-            #Integrate across surface of pillar for each wavelength
-            integrand_per_wl = np.zeros(yv.size)
-            for i, y in enumerate(yv):
-                #Calculate for each edge
-                norm1 = np.array([1, 0, 0])
-                norm2 = np.array([-1, 0, 0])
-                integrandright = integrand_fun(x0+w/2,y,0,wl,norm1,eps_in[idx], eps_out[idx]) if (x0 + w/2 < simulation_right and x0 + w/2 > simulation_left) else 0
-                integrandleft = integrand_fun(x0-w/2,y,0,wl,norm2, eps_in[idx], eps_out[idx]) if (x0 - w/2 < simulation_right and x0 - w/2 > simulation_left) else 0
-                integrand_per_wl[i] = (integrandright - integrandleft) / 2
-            #Perform integral for each wavelength
-            derivs.append(np.trapz(y = integrand_per_wl, x = yv))
-
-        return np.array(derivs).flatten()
 
     def calculate_bounds(self):
         '''Calculates the bounds given the minimum feature size'''
@@ -272,6 +253,33 @@ class MovingMetasurface2D(Geometry):
         jac[j+num_objects] = -0.5
 
         return jac
+
+    #Takes in ij meshgrid of points to evaluate and returns interpolated E and D fields at those points
+    @staticmethod
+    def interpolate_fields(x, y, z, fields):
+        #fields.x, fields.y, fields.z, fields.E, fields.D, fields.wl are relevant terms
+        #E a 5D matrix in form x:y:z:wl:vector where vector = 0,1,2 for x,y,z components
+
+        
+        #Finds meshgrid indices of upper bound x,y,z locations in array
+        xi, yi = np.meshgrid(np.searchsorted(fields.x, x[:,0]), np.searchsorted(fields.y, y[0,:]), indexing = 'ij')
+        xi = xi.flatten()
+        yi = yi.flatten()
+        x = x.flatten()
+        y = y.flatten()
+
+        #Calculates rectangle areas for bilinear interpolation
+        denom = (fields.x[xi] - fields.x[xi-1])*(fields.y[yi] - fields.y[yi-1])
+        Na = (fields.x[xi] - x)*(y - fields.y[yi-1])/denom
+        Nb = (x - fields.x[xi-1])*(y-fields.y[yi-1])/denom
+        Nc = (fields.x[xi] - x)*(fields.y[yi] - y)/denom
+        Nd = (x - fields.x[xi-1])*(fields.y[yi] - y)/denom
+
+        E = fields.E[xi-1,yi,z,:,:]*Na + fields.E[xi,yi,z,:,:]*Nb + fields.E[xi-1,yi-1,z,:,:]*Nc + fields.E[xi,yi-1,z,:,:]*Nd
+        D = fields.D[xi-1,yi,z,:,:]*Na + fields.D[xi,yi,z,:,:]*Nb + fields.D[xi-1,yi-1,z,:,:]*Nc + fields.D[xi,yi-1,z,:,:]*Nd
+
+        return E, D
+        
 
 
 class MovingMetasurfaceAnnulus(MovingMetasurface2D):

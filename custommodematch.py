@@ -14,7 +14,6 @@ import lumapi
 from lumopt.utilities.wavelengths import Wavelengths
 from lumopt.utilities.materials import Material
 from lumopt.lumerical_methods.lumerical_scripts import get_fields
-import time
 
 class CustomModeMatch(object):
 
@@ -232,8 +231,6 @@ class CustomModeMatch(object):
         #Hsource = np.fromfunction(fH, (xarray.size, yarray.size, zarray.size, wavelengths.size), dtype=float)
         #print(Hsource.shape)
 
-        start = time.time()
-
         modepower_vs_wl = np.zeros(wavelengths.size, dtype = np.complex128)
         for idx, wl in enumerate(wavelengths):
             modepower_vs_pos = np.zeros((xarray.size, yarray.size, zarray.size), dtype = np.complex128)
@@ -250,7 +247,6 @@ class CustomModeMatch(object):
             modepower_vs_wl[idx] = CustomModeMatch.integrate_xyz(modepower_vs_pos, xarray, yarray, zarray)
 
         self.modepower = modepower_vs_wl
-        print(time.time() - start)
 
         #Push field data into adjoint source
         lumapi.putMatrix(sim.fdtd.handle, 'x', xarray)

@@ -97,22 +97,16 @@ class MovingMetasurface2D(Geometry):
         eps_in = self.eps_in.get_eps(gradient_fields.forward_fields.wl)
         eps_out = self.eps_out.get_eps(gradient_fields.forward_fields.wl)
         eps_0 = sp.constants.epsilon_0
+        wl = gradient_fields.forward_fields.wl
 
         start_time = datetime.now()
         #Creates ordered arrays of x and y coordinates
         x = np.stack(((self.offsets+self.init_pos-self.widths/2),(self.offsets + self.init_pos + self.widths/2) ), axis = -1).flatten()
-        print('x:')
-        print(x)
         y = np.linspace(self.y, self.y + self.h, self.height_precision) 
-        print('y:')
-        print(y)
         xv, yv = np.meshgrid(x, y, indexing ='ij')
-        print(xv.shape)
-        print(yv.shape)
 
         Ef, Df = MovingMetasurface2D.interpolate_fields(xv, yv, 0, gradient_fields.forward_fields)
         Ea, Da = MovingMetasurface2D.interpolate_fields(xv, yv, 0, gradient_fields.adjoint_fields)
-        print(Ef.shape)
 
         #2N x values, N pos derivatives, N position derivatives
         #Ef, etc shape is (2N*height_precision, 1, wl.size, 3)
@@ -120,28 +114,19 @@ class MovingMetasurface2D(Geometry):
         Df = np.reshape(Df, (x.size, y.size, wl.size, 3))
         Ea = np.reshape(Ea, (x.size, y.size, wl.size, 3))
         Da = np.reshape(Da, (x.size, y.size, wl.size, 3))
-        print(Ef.shape)
 
 
-        integrand = np.real(2*eps_0*(eps_in - eps_out)*np.sum(Ef[:,:,:,1:]*Ea[:,:,:,1:], axis=-1) + 1/eps_0 *(1.0/eps_out - 1.0/eps_in)*Df[:,:,:,0]*Da[:,:,:,0]
-        print(integrand.shape)
-
+        integrand = np.real(2*eps_0*(eps_in - eps_out)*np.sum(Ef[:,:,:,1:]*Ea[:,:,:,1:], axis=-1) + 1/eps_0 *(1.0/eps_out - 1.0/eps_in)*Df[:,:,:,0]*Da[:,:,:,0])
         lines = np.trapz(integrand, y, axis=1)
-        print(lines.shape)
-        lines = np.reshape(lines, (x.size/2, 2, wl.size))
-        print(lines.shape)
+        lines = np.reshape(lines, (x.size//2, 2, wl.size))
 
         pos_deriv = (lines[:,0,:] + lines[:,1,:])/2
-        print(pos_deriv.shape)
         width_deriv = (-lines[:,0,:] + lines[:,1,:])/2
 
-        self.gradients.append(np.array(pos_gradients + width_gradients))
-        time_elapsed = datetime.now() - start_time
-        print('Time elapsed (hh:mm:ss) {}'.format(time_elapsed))
+        total_deriv = np.concatenate((pos_deriv, width_deriv))
+        self.gradients.append(total_deriv)
 
         return self.gradients[-1]
-
-        
 
     def get_current_params(self):
         return MovingMetasurface2D.combine_params(self.offsets, self.widths, self.scaling_factor)
@@ -270,10 +255,11 @@ class MovingMetasurface2D(Geometry):
 
         #Calculates rectangle areas for bilinear interpolation
         denom = (fields.x[xi] - fields.x[xi-1])*(fields.y[yi] - fields.y[yi-1])
-        Na = (fields.x[xi] - x)*(y - fields.y[yi-1])/denom
-        Nb = (x - fields.x[xi-1])*(y-fields.y[yi-1])/denom
-        Nc = (fields.x[xi] - x)*(fields.y[yi] - y)/denom
-        Nd = (x - fields.x[xi-1])*(fields.y[yi] - y)/denom
+        Na = ((fields.x[xi] - x)*(y - fields.y[yi-1])/denom).reshape(x.size, 1, 1)
+        Nb = ((x - fields.x[xi-1])*(y-fields.y[yi-1])/denom).reshape(x.size, 1, 1)
+        Nc = ((fields.x[xi] - x)*(fields.y[yi] - y)/denom).reshape(x.size, 1, 1)
+        Nd = ((x - fields.x[xi-1])*(fields.y[yi] - y)/denom).reshape(x.size, 1, 1)
+
 
         E = fields.E[xi-1,yi,z,:,:]*Na + fields.E[xi,yi,z,:,:]*Nb + fields.E[xi-1,yi-1,z,:,:]*Nc + fields.E[xi,yi-1,z,:,:]*Nd
         D = fields.D[xi-1,yi,z,:,:]*Na + fields.D[xi,yi,z,:,:]*Nb + fields.D[xi-1,yi-1,z,:,:]*Nc + fields.D[xi,yi-1,z,:,:]*Nd

@@ -94,6 +94,9 @@ class MovingMetasurface2D(Geometry):
     def calculate_gradients(self, gradient_fields):
         '''Gradients are calculated by increasing the radius of each pillar''' 
 
+        simulation_right = self.simulation_span / 2
+        simulation_left = -simulation_right
+
         eps_in = self.eps_in.get_eps(gradient_fields.forward_fields.wl)
         eps_out = self.eps_out.get_eps(gradient_fields.forward_fields.wl)
         eps_0 = sp.constants.epsilon_0
@@ -108,25 +111,17 @@ class MovingMetasurface2D(Geometry):
         Ef, Df = MovingMetasurface2D.interpolate_fields(xv, yv, 0, gradient_fields.forward_fields)
         Ea, Da = MovingMetasurface2D.interpolate_fields(xv, yv, 0, gradient_fields.adjoint_fields)
 
-        #2N x values, N pos derivatives, N position derivatives
-        #Ef, etc shape is (2N*height_precision, 1, wl.size, 3)
-        Ef = np.reshape(Ef, (x.size, y.size, wl.size, 3))
-        Df = np.reshape(Df, (x.size, y.size, wl.size, 3))
-        Ea = np.reshape(Ea, (x.size, y.size, wl.size, 3))
-        Da = np.reshape(Da, (x.size, y.size, wl.size, 3))
-
-
         integrand = np.real(2*eps_0*(eps_in - eps_out)*np.sum(Ef[:,:,:,1:]*Ea[:,:,:,1:], axis=-1) + 1/eps_0 *(1.0/eps_out - 1.0/eps_in)*Df[:,:,:,0]*Da[:,:,:,0])
-        lines = np.trapz(integrand, y, axis=1)
+        lines = np.trapz(integrand, x = y, axis=1)
         lines = np.reshape(lines, (x.size//2, 2, wl.size))
 
-        pos_deriv = (lines[:,0,:] + lines[:,1,:])/2
-        width_deriv = (-lines[:,0,:] + lines[:,1,:])/2
+        #Directionality based on pointing OUT of the boundary or INWARD
+        width_deriv = lines[:,0,:] + lines[:,1,:]
+        pos_deriv = -lines[:,0,:] + lines[:,1,:]
 
         total_deriv = np.concatenate((pos_deriv, width_deriv))
         self.gradients.append(total_deriv)
-
-        return self.gradients[-1]
+        return total_deriv
 
     def get_current_params(self):
         return MovingMetasurface2D.combine_params(self.offsets, self.widths, self.scaling_factor)
@@ -247,24 +242,29 @@ class MovingMetasurface2D(Geometry):
 
         
         #Finds meshgrid indices of upper bound x,y,z locations in array
+        nx = x.shape[0]
+        ny = x.shape[1]
+
         xi, yi = np.meshgrid(np.searchsorted(fields.x, x[:,0]), np.searchsorted(fields.y, y[0,:]), indexing = 'ij')
+        x1 = (fields.x[xi-1]).flatten()
+        x2 = (fields.x[xi]).flatten()
+        y1 = (fields.y[yi-1]).flatten()
+        y2 = (fields.y[yi]).flatten()
         xi = xi.flatten()
         yi = yi.flatten()
         x = x.flatten()
         y = y.flatten()
 
-        #Calculates rectangle areas for bilinear interpolation
-        denom = (fields.x[xi] - fields.x[xi-1])*(fields.y[yi] - fields.y[yi-1])
-        Na = ((fields.x[xi] - x)*(y - fields.y[yi-1])/denom).reshape(x.size, 1, 1)
-        Nb = ((x - fields.x[xi-1])*(y-fields.y[yi-1])/denom).reshape(x.size, 1, 1)
-        Nc = ((fields.x[xi] - x)*(fields.y[yi] - y)/denom).reshape(x.size, 1, 1)
-        Nd = ((x - fields.x[xi-1])*(fields.y[yi] - y)/denom).reshape(x.size, 1, 1)
-
-
-        E = fields.E[xi-1,yi,z,:,:]*Na + fields.E[xi,yi,z,:,:]*Nb + fields.E[xi-1,yi-1,z,:,:]*Nc + fields.E[xi,yi-1,z,:,:]*Nd
-        D = fields.D[xi-1,yi,z,:,:]*Na + fields.D[xi,yi,z,:,:]*Nb + fields.D[xi-1,yi-1,z,:,:]*Nc + fields.D[xi,yi-1,z,:,:]*Nd
-
-        return E, D
+        #Calculates rectangle areas for bilinear interpolation (Wikipedia)
+        denom = (x2-x1)*(y2-y1)
+        w11 = ((x2-x)*(y2-y)/denom).reshape(x.size, 1, 1)
+        w12 = ((x2-x)*(y-y1)/denom).reshape(x.size, 1, 1)
+        w21 = ((x-x1)*(y2-y)/denom).reshape(x.size, 1, 1)
+        w22 = ((x-x1)*(y-y1)/denom).reshape(x.size, 1, 1)
+        
+        E = fields.E[xi-1,yi-1,z,:,:]*w11 + fields.E[xi-1,yi,z,:,:]*w12 + fields.E[xi,yi-1,z,:,:]*w21 + fields.E[xi,yi,z,:,:]*w22
+        D = fields.D[xi-1,yi-1,z,:,:]*w11 + fields.D[xi-1,yi,z,:,:]*w12 + fields.D[xi,yi-1,z,:,:]*w21 + fields.D[xi,yi,z,:,:]*w22
+        return E.reshape(nx, ny, fields.wl.size, 3), D.reshape(nx, ny, fields.wl.size, 3)
         
 
 
@@ -390,3 +390,4 @@ class MovingMetasurfaceAnnulus(MovingMetasurface2D):
     		'jac':lambda x:jacobian(x)})
 
     	return cons
+

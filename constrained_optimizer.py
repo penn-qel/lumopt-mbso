@@ -43,9 +43,6 @@ class ConstrainedOptimizer(ScipyOptimizers):
 		self.constraints = constraints
 
 	def run(self):
-		print('Running scipy optimizer')
-		print('bounds = {}'.format(self.bounds))
-		print('start = {}'.format(self.start_point))
 		res = spo.minimize(fun = self.callable_fom,
 							x0 = self.start_point,
 							jac = self.callable_jac,

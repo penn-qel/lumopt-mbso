@@ -32,12 +32,12 @@ class MovingMetasurface3D(Geometry):
     """
 
     def __init__(self, posx, posy, rx, ry, min_feature_size, z, h, eps_in, eps_out, height_precision = 10, angle_precision = 20, scaling_factor = 1):
-        self.init_x = posx
-        self.init_y = posy
-        self.rx = rx
-        self.ry = ry
-        self.offset_x = np.zeros(posx.size)
-        self.offset_y = np.zeros(posy.size)
+        self.init_x = posx.flatten()
+        self.init_y = posy.flatten()
+        self.rx = rx.flatten()
+        self.ry = ry.flatten()
+        self.offset_x = np.zeros(posx.size).flatten()
+        self.offset_y = np.zeros(posy.size).flatten()
         self.z = float(z)
         self.h = float(h)
         self.eps_out = eps_out if isinstance(eps_out, Material) else Material(eps_out)
@@ -295,7 +295,7 @@ class MovingMetasurface3D(Geometry):
             for i in range(12*N**2):
                 rows[i], cols[i], vals[i] = evaluate_index(i)
 
-            return sp.sparse.csc_matrix((vals,(rows, cols)), shape=(2*N**2, 4*N))
+            return (sp.sparse.csc_matrix((vals,(rows, cols)), shape=(2*N**2, 4*N))).toarray()
 
         return {'type': 'ineq', 'fun': constraint, 'jac': jacobian} 
            

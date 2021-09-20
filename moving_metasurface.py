@@ -111,7 +111,7 @@ class MovingMetasurface2D(Geometry):
         Ef, Df = MovingMetasurface2D.interpolate_fields(xv, yv, 0, gradient_fields.forward_fields)
         Ea, Da = MovingMetasurface2D.interpolate_fields(xv, yv, 0, gradient_fields.adjoint_fields)
 
-        integrand = np.real(2*eps_0*(eps_in - eps_out)*np.sum(Ef[:,:,:,1:]*Ea[:,:,:,1:], axis=-1) + 1/eps_0 *(1.0/eps_out - 1.0/eps_in)*Df[:,:,:,0]*Da[:,:,:,0])
+        integrand = 2*np.real(eps_0*(eps_in - eps_out)*np.sum(Ef[:,:,:,1:]*Ea[:,:,:,1:], axis=-1) + 1/eps_0 *(1.0/eps_out - 1.0/eps_in)*Df[:,:,:,0]*Da[:,:,:,0])
         lines = np.trapz(integrand, x = y, axis=1)
         lines = np.reshape(lines, (x.size//2, 2, wl.size))
 

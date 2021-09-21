@@ -198,9 +198,7 @@ class CustomModeMatch(object):
             wavelengths = np.array([self.wavelengths[int(self.wavelengths.size/2)]])
             eps = np.array([eps[int(self.wavelengths.size/2)]])
 
-        #Field dimension: 0 (x-axis), 1 (y-axis), 2 (z-axis), 3 (frequency), 4 (vector component)
-        Esource = np.zeros((xarray.size, yarray.size, zarray.size, wavelengths.size, 3), dtype = np.complex128)
-        Hsource = np.zeros((xarray.size, yarray.size, zarray.size, wavelengths.size, 3), dtype = np.complex128)
+        xv, yv, zv, wlv = np.meshgrid(xarray, yarray, zarray, wavelengths, indexing = 'ij')
 
         #Get normal vector to monitor
         norm = self.get_monitor_normal(sim)
@@ -209,44 +207,20 @@ class CustomModeMatch(object):
         #Esource = (1/epsilon*epsilon0)Hm* x n
         #Hsource = (1/mu0)Em* x n
         #modepower = Re(Em x Hm*) . n (power of FOM mode, not adjoint. But convenient to calculate it once now.)
-        '''
-        wlindices = np.arange(wavelengths.size)
-        print(wlindices)
-        xv, yv, zv, wlv = np.meshgrid(xarray[0:100], yarray[0:100], zarray, wlindices)
-        fE = np.vectorize(lambda x, y, z, idx: np.cross(np.conj(self.Hmodefun(x,y,z,wavelengths[idx])), norm)/(eps[idx]*scipy.constants.epsilon_0))
-        fH = np.vectorize(lambda x, y, z, idx: np.cross(np.conj(self.Emodefun(x,y,z,wavelengths[idx])), norm)/scipy.constants.mu_0)
-        Esource = fE(xv,yv,zv,wlv)
-        print(Esource)
-        print(Esource.shape)'''
 
-        #ans = np.cross(np.conj(self.Hmodefun(xarray[0],yarray[0],zarray[0],wavelengths[0])), norm)/(eps[0]*scipy.constants.epsilon_0)
-        #print(ans)
-        #print(type(ans))
-        #fE = lambda i,j,k,l: np.cross(np.conj(self.Hmodefun(xarray[i],yarray[j],zarray[k],wavelengths[l])), norm)/(eps[l]*scipy.constants.epsilon_0)
-        #fE = lambda i,j,k,l: i + j + k + l
-        #fH = lambda i,j,k,l: np.cross(np.conj(self.Emodefun(xarray[i],yarray[j],zarray[k],wavelengths[l])), norm)/scipy.constants.mu_0
+        Em = self.Emodefun(xv.flatten(), yv.flatten(), zv.flatten(), wlv.flatten()).reshape((xarray.size, yarray.size, zarray.size, wavelengths.size, 3))
+        Hm = self.Hmodefun(xv.flatten(), yv.flatten(), zv.flatten(), wlv.flatten()).reshape((xarray.size, yarray.size, zarray.size, wavelengths.size, 3))
+        Esource = np.cross(np.conj(Hm), norm)/(eps.reshape(1,1,1,wavelengths.size,1)*scipy.constants.epsilon_0)
+        Hsource = np.cross(np.conj(Em), norm)/scipy.constants.mu_0
 
-        #Esource = np.fromfunction(fE, (xarray.size, yarray.size, zarray.size, wavelengths.size), dtype=float)
-        #print(Esource.shape)
-        #Hsource = np.fromfunction(fH, (xarray.size, yarray.size, zarray.size, wavelengths.size), dtype=float)
-        #print(Hsource.shape)
-
-        modepower_vs_wl = np.zeros(wavelengths.size, dtype = np.complex128)
-        for idx, wl in enumerate(wavelengths):
-            modepower_vs_pos = np.zeros((xarray.size, yarray.size, zarray.size), dtype = np.complex128)
-            for i, x in enumerate(xarray):
-                for j, y in enumerate(yarray):
-                    for k,z in enumerate(zarray):
-                        Esource[i,j,k,idx,:] = np.cross(np.conj(self.Hmodefun(x,y,z,wl)), norm)/(eps[idx]*scipy.constants.epsilon_0)
-                        Hsource[i,j,k,idx,:] = np.cross(np.conj(self.Emodefun(x,y,z,wl)), norm)/scipy.constants.mu_0
-
-                        S = np.cross(self.Emodefun(x,y,z,wl), np.conj(self.Hmodefun(x,y,z,wl)))
-                        modepower_vs_pos[i,j,k] = np.dot(S.real, norm)
-
-            #Integrate mode power, but skip over single-valued dimensions
-            modepower_vs_wl[idx] = CustomModeMatch.integrate_xyz(modepower_vs_pos, xarray, yarray, zarray)
-
-        self.modepower = modepower_vs_wl
+        modepower = np.dot(np.real(np.cross(Em, np.conj(Hm))), norm)
+        if zarray.size > 1:
+            modepower = np.trapz(modepower, zarray, axis = 2)
+        if yarray.size > 1:
+            modepower = np.trapz(modepower, yarray, axis = 1)
+        if xarray.size > 1:
+            modepower = np.trapz(modepower, xarray, axis = 0)
+        self.modepower = modepower.flatten()
 
         #Push field data into adjoint source
         lumapi.putMatrix(sim.fdtd.handle, 'x', xarray)
@@ -298,21 +272,6 @@ class CustomModeMatch(object):
         return np.asarray(source_power).flatten()
 
     @staticmethod
-    def integrate_xyz(matrix, x, y, z):
-        '''Takes a matrix size (Nx, Ny, Nz) and integrates with trapz() across all three dimensions, taking into account single-valued ones'''
-        integral = matrix.squeeze()
-        if z.size > 1:
-            integral = np.trapz(y = integral, x = z)
-        if y.size > 1:
-            integral = np.trapz(y = integral, x = y)
-        if x.size > 1:
-            integral = np.trapz(y = integral, x = x)
-
-        assert(integral.size == 1)
-        return integral
-
-
-    @staticmethod
     def get_transmission_coefficient(fields, normal, Em, Hm):
         norm = normal / np.linalg.norm(normal)
         xarray = fields.x.flatten()
@@ -320,26 +279,22 @@ class CustomModeMatch(object):
         zarray = fields.z.flatten()
         wlarray = fields.wl.flatten()
 
-        #Calculate transmission coefficient as function of wavelength
-        T_vs_wl = np.zeros(wlarray.size, dtype = np.complex128)
-        for idx, wl in enumerate(wlarray):
-            #Calculate power at each position
-            #(E x Hm* . n + Em* x H . n)
-            T_vs_pos = np.zeros((xarray.size, yarray.size, zarray.size), dtype = np.complex128)
-            for i, x in enumerate(xarray):
-                for j, y in enumerate(yarray):
-                    for k, z in enumerate(zarray):
-                        T_vs_pos[i,j,k] = CustomModeMatch.calculate_power(x,y,z,wl,norm,fields,Em,Hm)
+        xv, yv, zv, wlv = np.meshgrid(xarray, yarray, zarray, wlarray, indexing = 'ij')
+        Emode = Em(xv.flatten(), yv.flatten(), zv.flatten(), wlv.flatten()).reshape((xarray.size, yarray.size, zarray.size, wlarray.size, 3))
+        Hmode = Hm(xv.flatten(), yv.flatten(), zv.flatten(), wlv.flatten()).reshape((xarray.size, yarray.size, zarray.size, wlarray.size, 3))
 
-            #Perform spatial integral
-            T_vs_wl[idx] = CustomModeMatch.integrate_xyz(T_vs_pos, xarray, yarray, zarray)
-        return T_vs_wl
+        S1 = np.cross(fields.E, np.conj(Hmode))
+        S2 = np.cross(np.conj(Emode), fields.H)
+        T = np.dot(S1, norm) + np.dot(S2, norm)
 
-    @staticmethod
-    def calculate_power(x, y, z, wl, norm, fields, Em, Hm):
-        S1 = np.cross(fields.getfield(x,y,z,wl), np.conj(Hm(x,y,z,wl)))
-        S2 = np.cross(np.conj(Em(x,y,z,wl)), fields.getHfield(x,y,z,wl))
-        return np.dot(S1, norm) + np.dot(S2, norm)
+        if zarray.size > 1:
+            T = np.trapz(T, zarray, axis = 2)
+        if yarray.size > 1:
+            T = np.trapz(T, yarray, axis = 1)
+        if xarray.size > 1:
+            T = np.trapz(T, xarray, axis = 0)
+
+        return T.flatten()
 
     @staticmethod
     def fom_wavelength_integral(T_fwd_vs_wavelength, wavelengths, target_T_fwd, norm_p):

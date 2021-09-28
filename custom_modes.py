@@ -121,9 +121,9 @@ def InterpolateMonitor(filename, monitorname = 'fom'):
     fdtd.close()
     
     def Em(x, y, z, wl):
-        return interpolate_Efield(x, y, z, fields)
+        return interpolate_Efield(x, y, z, wl, fields)
 
     def Hm(x,y,z,wl):
-        return interpolate_Hfield(x, y, z, fields)
+        return interpolate_Hfield(x, y, z, wl, fields)
 
     return Em, Hm

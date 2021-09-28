@@ -11,6 +11,7 @@ import scipy as sp
 import lumapi
 from lumopt.lumerical_methods.lumerical_scripts import get_fields
 from lumopt.utilities.scipy_wrappers import wrapped_GridInterpolator
+from interpolate_fields import interpolate_Efield, interpolate_Hfield
 
 def AiryDisk(depth, radius, index, x0, y0, z0, norm = np.array([0, 0, -1]), pol_norm = np.array([1, 0, 0])):
     #Depth = focal depth of lens
@@ -118,21 +119,11 @@ def InterpolateMonitor(filename, monitorname = 'fom'):
                         nointerpolation = False)
 
     fdtd.close()
-    return fields.getfield, fields.getHfield
+    
+    def Em(x, y, z, wl):
+        return interpolate_Efield(x, y, z, fields)
 
-def InterpolateMonitor2(filename, monitorname = 'fom'):
-    '''Returns interpolation functions on monitor data in a Lumerical sim file'''
+    def Hm(x,y,z,wl):
+        return interpolate_Hfield(x, y, z, fields)
 
-    fdtd = lumapi.FDTD(filename = filename, hide = False)
-
-    E = fdtd.getresult(monitorname, 'E')
-    H = fdtd.getresult(monitorname, 'H')
-    x = np.array([E['x']]).flatten()
-    y = np.array([E['y']]).flatten()
-    z = np.array([E['z']]).flatten()
-    Efield = E['E']
-    Hfield = H['H']
-    wl = sp.constants.c / (np.array(E['f']).flatten())
-
-    Em = wrapped_GridInterpolator((x,y,z,wl), Efield)
-    print(Em(0,0,-0.5e-6,700e-9))
+    return Em, Hm

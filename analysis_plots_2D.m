@@ -7,7 +7,7 @@ close all;
 %Should have variables Efield, Efocus, Esurf
 %Each is a Lumerical struct containing whole field, focal plane, and
 %bottom surface, respectively
-load('../Optimizations/20191121/A/results.mat');
+load('../Optimizations/20200303/A/results.mat');
 
 %% Call cross_section_fields function
 

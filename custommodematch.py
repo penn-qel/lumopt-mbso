@@ -370,3 +370,34 @@ class CustomModeMatch(object):
             T_fwd_partial_derivs = -1.0 * np.sign(T_fwd_vs_wavelength - target_T_fwd_vs_wavelength) * T_fwd_partial_derivs_vs_wl.flatten()
 
         return T_fwd_partial_derivs.flatten().real
+
+    def fom_gradient_wavelength_integral_on_cad(self, sim, grad_var_name, wl):
+        assert np.allclose(wl, self.wavelengths)
+
+        target_T_fwd_vs_wavelength = np.ones(wl.size)
+        target_T_fwd_weights_vs_wavelength = np.ones(wl.size)
+        T_fwd_error = self.T_fwd_vs_wavelength - target_T_fwd_vs_wavelength
+        T_fwd_error = np.multiply(target_T_fwd_weights_vs_wavelength, T_fwd_error)
+
+        if wl.size > 1:
+            wavelength_range = wl.max() - wl.min()
+            T_fwd_error_integrand = np.power(np.abs(T_fwd_error), self.norm_p) / wavelength_range
+            const_factor = -1.0 * np.power(np.trapz(y = T_fwd_error_integrand, x = wl), 1.0 / self.norm_p - 1.0)
+            integral_kernel = np.power(np.abs(T_fwd_error), self.norm_p - 1) * np.sign(T_fwd_error) / wavelength_range
+            
+            d = np.diff(wl)
+            quad_weight = np.append(np.append(d[0], d[0:-1]+d[1:]),d[-1])/2 #< There is probably a more elegant way to do this
+            v = const_factor * integral_kernel * quad_weight
+
+            lumapi.putMatrix(sim.fdtd.handle, "wl_scaled_integral_kernel", v)
+            sim.fdtd.eval(('dF_dp_s=size({0});'
+                           'dF_dp2 = reshape(permute({0},[3,2,1]),[dF_dp_s(3),dF_dp_s(2)*dF_dp_s(1)]);'
+                           'T_fwd_partial_derivs=real(mult(transpose(wl_scaled_integral_kernel),dF_dp2));').format(grad_var_name) )
+            T_fwd_partial_derivs_on_cad = sim.fdtd.getv("T_fwd_partial_derivs")
+
+        else:
+            sim.fdtd.eval(('T_fwd_partial_derivs=real({0});').format(grad_var_name) )
+            T_fwd_partial_derivs_on_cad = sim.fdtd.getv("T_fwd_partial_derivs")
+            T_fwd_partial_derivs_on_cad*= -1.0 * np.sign(T_fwd_error)
+
+        return T_fwd_partial_derivs_on_cad.flatten()

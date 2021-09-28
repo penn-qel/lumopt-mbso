@@ -16,6 +16,7 @@ import matplotlib.patches as patches
 from lumopt.geometries.geometry import Geometry
 from lumopt.utilities.materials import Material
 from lumopt.utilities.wavelengths import Wavelengths
+import interpolate_fields
 
 class MovingMetasurface3D(Geometry):
     """
@@ -112,8 +113,8 @@ class MovingMetasurface3D(Geometry):
         xv = self.offset_x[pillarv] + self.init_x[pillarv] + u*np.cos(phi) - v*np.sin(phi)
         yv = self.offset_y[pillarv] + self.init_y[pillarv] + u*np.sin(phi) + v*np.cos(phi)
 
-        Ef, Df = self.interpolate_fields(xv.flatten(), yv.flatten(), zv.flatten(), gradient_fields.forward_fields)
-        Ea, Da = self.interpolate_fields(xv.flatten(), yv.flatten(), zv.flatten(), gradient_fields.adjoint_fields)
+        Ef, Df = interpolate_fields(xv.flatten(), yv.flatten(), zv.flatten(), gradient_fields.forward_fields)
+        Ea, Da = interpolate_fields(xv.flatten(), yv.flatten(), zv.flatten(), gradient_fields.adjoint_fields)
 
         Ef = Ef.reshape(pillars.size, theta.size, z.size, wl.size, 3)
         Df = Df.reshape(pillars.size, theta.size, z.size, wl.size, 3)
@@ -364,40 +365,3 @@ class MovingMetasurface3D(Geometry):
                 fdtd_index = sim.fdtd.getfdtdindex(self.eps_in.name, freq_array, float(freq_array.min()), float(freq_array.max()))
                 self.eps_in.permittivity = np.asarray(np.power(fdtd_index, 2)).flatten()
             sim.fdtd.set('script', struct_script)
-
-     #Takes in arrays of points to evaluate and returns interpolated E and D fields at those points
-    @staticmethod
-    def interpolate_fields(x, y, z, fields):
-        #fields.x, fields.y, fields.z, fields.E, fields.D, fields.wl are relevant terms
-
-        xi = np.searchsorted(fields.x, x).reshape(x.size, 1, 1)
-        yi = np.searchsorted(fields.y, y).reshape(x.size, 1, 1)
-        zi = np.searchsorted(fields.z, z).reshape(x.size, 1, 1)
-        x = x.reshape(x.size, 1, 1)
-        y = y.reshape(x.size, 1, 1)
-        z = z.reshape(x.size, 1, 1)
-
-        #Follows Wikipedia algorithm for trilinear interpolation
-        xd = (x - fields.x[xi-1])/(fields.x[xi] - fields.x[xi-1])
-        yd = (y - fields.y[yi-1])/(fields.y[yi] - fields.y[yi-1])
-        zd = (z - fields.z[zi-1])/(fields.z[zi] - fields.z[zi-1])
-
-        E00 = fields.E[xi-1, yi-1, zi-1,:,:].squeeze()*(1 - xd) + fields.E[xi, yi-1, zi-1,:,:].squeeze()*xd
-        E01 = fields.E[xi-1, yi-1, zi,:,:].squeeze()*(1-xd) + fields.E[xi, yi-1, zi,:,:].squeeze()*xd
-        E10 = fields.E[xi-1, yi, zi-1,:,:].squeeze()*(1-xd) + fields.E[xi, yi, zi-1,:,:].squeeze()*xd
-        E11 = fields.E[xi-1, yi, zi,:,:].squeeze()*(1-xd) + fields.E[xi, yi, zi,:,:].squeeze()*xd
-
-        E0 = E00*(1-yd) + E10*yd
-        E1 = E01*(1-yd) + E11*yd
-        E = E0*(1-zd) + E1*zd
-
-        D00 = fields.D[xi-1, yi-1, zi-1,:,:].squeeze()*(1 - xd) + fields.D[xi, yi-1, zi-1,:,:].squeeze()*xd
-        D01 = fields.D[xi-1, yi-1, zi,:,:].squeeze()*(1-xd) + fields.D[xi, yi-1, zi,:,:].squeeze()*xd
-        D10 = fields.D[xi-1, yi, zi-1,:,:].squeeze()*(1-xd) + fields.D[xi, yi, zi-1,:,:].squeeze()*xd
-        D11 = fields.D[xi-1, yi, zi,:,:].squeeze()*(1-xd) + fields.D[xi, yi, zi,:,:].squeeze()*xd
-
-        D0 = D00*(1-yd) + D10*yd
-        D1 = D01*(1-yd) + D11*yd
-        D = D0*(1-zd) + D1*zd
-
-        return E, D 

@@ -16,7 +16,7 @@ import matplotlib.patches as patches
 from lumopt.geometries.geometry import Geometry
 from lumopt.utilities.materials import Material
 from lumopt.utilities.wavelengths import Wavelengths
-import interpolate_fields
+from interpolate_fields import interpolate_fields
 
 class MovingMetasurface3D(Geometry):
     """
@@ -161,13 +161,13 @@ class MovingMetasurface3D(Geometry):
         phi_dir = np.zeros((pillars.size, theta.size, z.size, 1, 3))
         phi_dir[:,:,:,0,0] = -self.rx[pillarv]*np.cos(thetav)*np.sin(phiv) - self.ry[pillarv]*np.sin(thetav)*np.cos(thetav)
         phi_dir[:,:,:,0,1] = self.rx[pillarv]*np.cos(thetav)*np.cos(phiv) - self.ry[pillarv]*np.sin(thetav)*np.sin(phiv)
-        phi_comp = np.sum(normal*phi_dir, axis=-1)
+        phi_comp = np.sum(normal*phi_dir*self.scaling_factor, axis=-1)
 
         deriv_x = np.trapz(np.trapz(x_comp*curve_integrand, z, axis = 2), theta, axis = 1)
         deriv_y = np.trapz(np.trapz(y_comp*curve_integrand, z, axis = 2), theta, axis = 1)
         deriv_rx = np.trapz(np.trapz(rx_comp*curve_integrand, z, axis = 2), theta, axis = 1)
         deriv_ry = np.trapz(np.trapz(ry_comp*curve_integrand, z, axis = 2), theta, axis = 1)
-        deriv_phi = np.trapz(np.trapz(phi_comp*curve_integrand, z, axis = 2), theta, axis = 1)*self.scaling_factor/self.phi_scaling
+        deriv_phi = np.trapz(np.trapz(phi_comp*curve_integrand, z, axis = 2), theta, axis = 1)
         
         total_deriv = np.concatenate((deriv_x, deriv_y, deriv_rx, deriv_ry, deriv_phi))
         self.gradients.append(total_deriv)

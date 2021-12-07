@@ -209,8 +209,9 @@ class MovingMetasurface3D(Geometry):
         '''Calculates bounds given the minimum feature size'''
         '''Bounds should be [min_feature_size/2, inf] for radiii and [-inf, inf] for offsets'''
         radius_bounds = [(self.min_feature_size*self.scaling_factor/2, np.inf)]*self.rx.size*2
-        offset_bounds = [(-np.inf, np.inf)]*self.rx.size*3
-        return (offset_bounds + radius_bounds)
+        offset_bounds = [(-np.inf, np.inf)]*self.rx.size*2
+        phi_bounds = [(-np.inf, np.inf)]*(self.rx.size)
+        return (offset_bounds + radius_bounds + phi_bounds)
 
     def build_constraints(self):
         '''Builds constraint objects given minimum feature size'''

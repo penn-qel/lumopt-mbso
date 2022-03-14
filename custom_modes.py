@@ -97,10 +97,10 @@ def PlaneWave(index, norm = np.array([0, 0, 1]), pol_norm = np.array([1, 0, 0]))
     Z = np.sqrt(sp.constants.mu_0/(np.power(index, 2)*sp.constants.epsilon_0))
 
     def Emodefun(x, y, z, wl):
-        return pol_norm
+        return np.outer(np.ones(x.size), pol_norm)
 
     def Hmodefun(x, y,z,wl):
-        return Hnorm/Z
+        return np.outer(np.ones(x.size), Hnorm/Z)
 
     return Emodefun, Hmodefun
 

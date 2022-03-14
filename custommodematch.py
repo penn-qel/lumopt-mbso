@@ -35,7 +35,7 @@ class CustomModeMatch(object):
         :param use_maxmin:     Optimize by maximizing min(F(w))
     """
 
-    def __init__(self, monitor_name, direction, Emodefun, Hmodefun, material, multi_freq_src = False, target_T_fwd = lambda wl: np.ones(wl.size), norm_p = 1, target_fom = 0, source_precision = 10e-9, use_maxmin = False):
+    def __init__(self, monitor_name, direction, Emodefun, Hmodefun, material, multi_freq_src = False, target_T_fwd = lambda wl: np.ones(wl.size), norm_p = 1, target_fom = 0, target_T_fwd_weights = lambda wl: np.ones(wl.size), source_precision = 10e-9, use_maxmin = False):
         self.monitor_name = str(monitor_name)
         if not self.monitor_name:
             raise UserWarning('empty monitor name.')
@@ -53,6 +53,16 @@ class CustomModeMatch(object):
             raise UserWarning('target transmission must always return numbers between zero and one.')
         else:
             self.target_T_fwd = target_T_fwd
+        
+        target_T_fwd_weights_result = target_T_fwd_weights(np.linspace(0.1e-6, 10.0e-6, 1000))
+        
+        if target_T_fwd_weights_result.size != 1000:
+            raise UserWarning('target transmission weights must return a flat vector with the requested number of wavelength samples.')
+        elif np.any(target_T_fwd_weights_result.min() < 0.0):
+            raise UserWarning('target transmission weights must always return positive numbers or zero.')
+        else:
+            self.target_T_fwd_weights = target_T_fwd_weights
+
         self.norm_p = int(norm_p)
         if self.norm_p < 1:
             raise UserWarning('exponent p for norm must be positive.')
@@ -154,7 +164,7 @@ class CustomModeMatch(object):
             self.min_indx = np.where(self.T_fwd_vs_wavelength == min_fom)
             print(self.T_fwd_vs_wavelength)
             return np.array([min_fom.real])
-        return CustomModeMatch.fom_wavelength_integral(self.T_fwd_vs_wavelength, self.wavelengths, self.target_T_fwd, self.norm_p)
+        return CustomModeMatch.fom_wavelength_integral(self.T_fwd_vs_wavelength, self.wavelengths, self.target_T_fwd, self.norm_p, self.target_T_fwd_weights)
 
     def get_fom_fields(self, sim):
         fom_fields = get_fields(sim.fdtd,
@@ -297,15 +307,18 @@ class CustomModeMatch(object):
         return T.flatten()
 
     @staticmethod
-    def fom_wavelength_integral(T_fwd_vs_wavelength, wavelengths, target_T_fwd, norm_p):
+    def fom_wavelength_integral(T_fwd_vs_wavelength, wavelengths, target_T_fwd, norm_p, target_T_fwd_weights):
         target_T_fwd_vs_wavelength = target_T_fwd(wavelengths).flatten()
+        target_T_fwd_weights_vs_wavelength = target_T_fwd_weights(wavelengths).flatten()
         if len(wavelengths) > 1:
             wavelength_range = wavelengths.max() - wavelengths.min()
             assert wavelength_range > 0.0, "wavelength range must be positive."
-            T_fwd_integrand = np.power(np.abs(target_T_fwd_vs_wavelength), norm_p) / wavelength_range
+            T_fwd_integrand = np.multiply(target_T_fwd_weights_vs_wavelength, np.power(np.abs(target_T_fwd_vs_wavelength), norm_p)) / wavelength_range #Include Here
+            #T_fwd_integrand = np.power(np.abs(target_T_fwd_vs_wavelength), norm_p) / wavelength_range
             const_term = np.power(np.trapz(y = T_fwd_integrand, x = wavelengths), 1.0 / norm_p)
             T_fwd_error = np.abs(T_fwd_vs_wavelength.flatten() - target_T_fwd_vs_wavelength)
-            T_fwd_error_integrand = np.power(T_fwd_error, norm_p) / wavelength_range
+            T_fwd_error_integrand = np.multiply(target_T_fwd_weights_vs_wavelength, np.power(T_fwd_error, norm_p)) / wavelength_range #Include here
+            #T_fwd_error_integrand = np.power(T_fwd_error, norm_p) / wavelength_range
             error_term = np.power(np.trapz(y = T_fwd_error_integrand, x = wavelengths), 1.0 / norm_p)
             fom = const_term - error_term
         else:
@@ -340,16 +353,17 @@ class CustomModeMatch(object):
             wl = wl[self.min_indx]
             T_fwd_partial_deriv = -1.0 *np.sign(self.T_fwd_vs_wavelength[self.min_indx] - self.target_T_fwd(wl)) * (T_fwd_partial_derivs_vs_wl[:,self.min_indx]).flatten()
             return T_fwd_partial_deriv.flatten().real
-        return CustomModeMatch.fom_gradient_wavelength_integral_impl(self.T_fwd_vs_wavelength, T_fwd_partial_derivs_vs_wl, self.target_T_fwd(wl).flatten(), self.wavelengths, self.norm_p)
+        return CustomModeMatch.fom_gradient_wavelength_integral_impl(self.T_fwd_vs_wavelength, T_fwd_partial_derivs_vs_wl, self.target_T_fwd(wl).flatten(), self.wavelengths, self.norm_p, self.target_T_fwd_weights(wl).flatten())
 
     @staticmethod
-    def fom_gradient_wavelength_integral_impl(T_fwd_vs_wavelength, T_fwd_partial_derivs_vs_wl, target_T_fwd_vs_wavelength, wl, norm_p):
+    def fom_gradient_wavelength_integral_impl(T_fwd_vs_wavelength, T_fwd_partial_derivs_vs_wl, target_T_fwd_vs_wavelength, wl, norm_p, target_T_fwd_weights):
 
         if wl.size > 1:
             assert T_fwd_partial_derivs_vs_wl.shape[1] == wl.size
             
             wavelength_range = wl.max() - wl.min()
             T_fwd_error = T_fwd_vs_wavelength - target_T_fwd_vs_wavelength
+            T_fwd_error = np.multiply(target_T_fwd_weights, T_fwd_error)
             T_fwd_error_integrand = np.power(np.abs(T_fwd_error), norm_p) / wavelength_range
             const_factor = -1.0 * np.power(np.trapz(y = T_fwd_error_integrand, x = wl), 1.0 / norm_p - 1.0)
             integral_kernel = np.power(np.abs(T_fwd_error), norm_p - 1) * np.sign(T_fwd_error) / wavelength_range
@@ -374,8 +388,8 @@ class CustomModeMatch(object):
     def fom_gradient_wavelength_integral_on_cad(self, sim, grad_var_name, wl):
         assert np.allclose(wl, self.wavelengths)
 
-        target_T_fwd_vs_wavelength = np.ones(wl.size)
-        target_T_fwd_weights_vs_wavelength = np.ones(wl.size)
+        target_T_fwd_vs_wavelength = self.target_T_fwd(wl).flatten()
+        target_T_fwd_weights_vs_wavelength = self.target_T_fwd_weights(wl).flatten()
         T_fwd_error = self.T_fwd_vs_wavelength - target_T_fwd_vs_wavelength
         T_fwd_error = np.multiply(target_T_fwd_weights_vs_wavelength, T_fwd_error)
 

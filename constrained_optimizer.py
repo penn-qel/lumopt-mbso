@@ -31,7 +31,7 @@ class ConstrainedOptimizer(ScipyOptimizers):
 	:param concurrent_adjoint: 	Boolean flag telling whether or not adjoint should be solved concurrently with forward sim
 
 	'''
-	def __init__(self, max_iter, method = 'SLSQP', constraints = None, scaling_factor = 1.0, pgtol = 1.0e-5, ftol = 1.0e-12, scale_initial_gradient_to = 0, penalty_fun = None, penalty_jac = None):
+	def __init__(self, max_iter, method = 'SLSQP', constraints = None, scaling_factor = 1.0, pgtol = 1.0e-5, ftol = 1.0e-12, scale_initial_gradient_to = 0, penalty_fun = None, penalty_jac = None, concurrent_adjoint = True):
 		super().__init__(max_iter = max_iter,
 						method = method,
 						scaling_factor = scaling_factor,
@@ -41,6 +41,7 @@ class ConstrainedOptimizer(ScipyOptimizers):
 						penalty_fun = penalty_fun,
 						penalty_jac = penalty_jac)
 		self.constraints = constraints
+		self.concurrent_adjoint = concurrent_adjoint
 
 	def run(self):
 		res = spo.minimize(fun = self.callable_fom,
@@ -59,8 +60,7 @@ class ConstrainedOptimizer(ScipyOptimizers):
 
 
 	def concurrent_adjoint_solves(self):
-		return self.method in ['L-BFGS-B','BFGS', 'SLSQP']
-
+		return (self.method in ['L-BFGS-B', 'BFGS', 'SLSQP']) and self.concurrent_adjoint
 	'''def reset_start_params(self, start_params, scale_initial_gradient_to):
 		#This function is responsible for scaling the start params and the FOM
 		#This bypasses the FOM scaling if is passed as an input

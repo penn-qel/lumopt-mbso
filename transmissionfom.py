@@ -34,7 +34,7 @@ class TransmissionFom(object):
     :param use_maxmin:      Boolean that triggers FOM/gradient calculations based on the worst-performing frequency, rather than average
     """
 
-    def __init__(self, monitor_name, direction = 'Forward', boundary_func = lambda x, y, z: 1, multi_freq_src = False, target_T_fwd = lambda wl: np.ones(wl.size), target_T_fwd_weights = lambda wl: np.ones(wl.size), norm_p = 1, target_fom = 0, use_maxmin = False):
+    def __init__(self, monitor_name, direction = 'Forward', boundary_func = lambda x, y, z: np.ones(x.size), multi_freq_src = False, target_T_fwd = lambda wl: np.ones(wl.size), target_T_fwd_weights = lambda wl: np.ones(wl.size), norm_p = 1, target_fom = 0, use_maxmin = False):
         self.monitor_name = str(monitor_name)
         if not self.monitor_name:
             raise UserWarning('empty monitor name')

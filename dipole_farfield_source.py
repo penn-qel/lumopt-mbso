@@ -3,7 +3,7 @@ import lumapi
 import scipy.constants
 import time
 
-def create_source(xsize, ysize, theta, phi, wavelengths, depth, n=2.4, z=0, grid = 20e-9):
+def create_source(xsize, ysize, theta, phi, wavelengths, depth, n=2.4, z=0, grid = 20e-9, create_file = True):
     x = np.linspace(-xsize/2, xsize/2, xsize/grid)
     y = np.linspace(-ysize/2, ysize/2, ysize/grid)
     xv, yv, zv, wlv = np.meshgrid(x, y, np.array(z), wavelengths, indexing = 'ij')
@@ -57,21 +57,29 @@ def create_source(xsize, ysize, theta, phi, wavelengths, depth, n=2.4, z=0, grid
     Hy = np.cos(thetav)*np.sin(phiv)*Htheta + np.cos(phiv)*Hphi
     Hz = -np.sin(thetav)*Htheta
 
-    fdtd = lumapi.FDTD()
-    lumapi.putMatrix(fdtd.handle, 'x', x)
-    lumapi.putMatrix(fdtd.handle, 'y', y)
-    lumapi.putMatrix(fdtd.handle, 'z', z*np.ones(1))
-    lumapi.putMatrix(fdtd.handle, 'f', np.divide(scipy.constants.speed_of_light,wavelengths))
-    lumapi.putMatrix(fdtd.handle, 'Ex', Ex)
-    lumapi.putMatrix(fdtd.handle, 'Ey', Ey)
-    lumapi.putMatrix(fdtd.handle, 'Ez', Ez)
-    lumapi.putMatrix(fdtd.handle, 'Hx', Hx)
-    lumapi.putMatrix(fdtd.handle, 'Hy', Hy)
-    lumapi.putMatrix(fdtd.handle, 'Hz', Hz)
+    E = np.stack((Ex, Ey, Ez), axis=-1)
+    H = np.stack((Hx, Hy, Hz), axis=-1)
 
-    fdtd.eval("EM = rectilineardataset('EM fields', x, y, z);")
-    fdtd.eval("EM.addparameter('lambda', c/f, 'f', f);")
-    fdtd.eval("EM.addattribute('E', Ex, Ey, Ez);")
-    fdtd.eval("EM.addattribute('H', Hx, Hy, Hz);")
-    fdtd.eval("matlabsave('sourcefile.mat', EM);")
-    fdtd.close()
+    fields = {'E' : E, 'H' : H, 'x': x, 'y': y, 'z':z, 'wl':wavelengths}
+
+    if create_file:
+        fdtd = lumapi.FDTD()
+        lumapi.putMatrix(fdtd.handle, 'x', x)
+        lumapi.putMatrix(fdtd.handle, 'y', y)
+        lumapi.putMatrix(fdtd.handle, 'z', z*np.ones(1))
+        lumapi.putMatrix(fdtd.handle, 'f', np.divide(scipy.constants.speed_of_light,wavelengths))
+        lumapi.putMatrix(fdtd.handle, 'Ex', Ex)
+        lumapi.putMatrix(fdtd.handle, 'Ey', Ey)
+        lumapi.putMatrix(fdtd.handle, 'Ez', Ez)
+        lumapi.putMatrix(fdtd.handle, 'Hx', Hx)
+        lumapi.putMatrix(fdtd.handle, 'Hy', Hy)
+        lumapi.putMatrix(fdtd.handle, 'Hz', Hz)
+
+        fdtd.eval("EM = rectilineardataset('EM fields', x, y, z);")
+        fdtd.eval("EM.addparameter('lambda', c/f, 'f', f);")
+        fdtd.eval("EM.addattribute('E', Ex, Ey, Ez);")
+        fdtd.eval("EM.addattribute('H', Hx, Hy, Hz);")
+        fdtd.eval("matlabsave('sourcefile.mat', EM);")
+        fdtd.close()
+
+    return fields

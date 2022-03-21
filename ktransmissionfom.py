@@ -47,10 +47,10 @@ class KTransmissionFom(TransmissionFom):
         monitor_fields = super().get_fom_fields(sim)
 
         #Filter fields in Fourier space before returning
-        return KTransmissionFom.filterkspace(monitor_fields, self.kboundary_func, self.wavelengths)
+        return KTransmissionFom.filterkspace(monitor_fields, self.kboundary_func)
         
     @staticmethod
-    def filterkspace(fields, kboundary_func, wavelengths):
+    def filterkspace(fields, kboundary_func):
         #Applies boundary function in frequency space on fields object, returns it
 
         assert(fields.z.size == 1)
@@ -58,7 +58,7 @@ class KTransmissionFom(TransmissionFom):
         Hk, vx, vy = KTransmissionFom.fft2D(fields.H, fields.x, fields.y)
 
         #Gets grid of relevant points. Normalizes spatial frequencies by multiplying by wavelength and gets boundary weights
-        vxv, vyv, wlv = np.meshgrid(vx, vy, wavelengths, indexing = 'ij')
+        vxv, vyv, wlv = np.meshgrid(vx, vy, fields.wl, indexing = 'ij')
         kx = vxv * wlv
         ky = vyv * wlv
         weights = kboundary_func(kx.flatten(), ky.flatten()).reshape(fields.x.size, fields.y.size, 1, wavelengths.size, 1)

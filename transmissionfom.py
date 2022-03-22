@@ -15,6 +15,7 @@ import time
 from lumopt.utilities.wavelengths import Wavelengths
 from lumopt.figures_of_merit.modematch import ModeMatch
 from lumopt.lumerical_methods.lumerical_scripts import get_fields
+from wavelengthintegrals import fom_wavelength_integral, fom_gradient_wavelength_integral_impl
 
 class TransmissionFom(object):
     """Calculates the figure of merit by integrating the Poynting vector through a portion of the monitor. 
@@ -129,7 +130,7 @@ class TransmissionFom(object):
             return np.array([min_fom.real])
 
         #Use existing FOM calculator
-        fom = ModeMatch.fom_wavelength_integral(self.T_fwd_vs_wavelength, self.wavelengths, self.target_T_fwd, self.norm_p, self.target_T_fwd_weights)
+        fom = fom_wavelength_integral(self.T_fwd_vs_wavelength, self.wavelengths, self.target_T_fwd, self.norm_p, self.target_T_fwd_weights)
         return fom
 
     def get_adjoint_field_scaling(self, sim):
@@ -146,7 +147,7 @@ class TransmissionFom(object):
             return (T_fwd_partial_derivs_vs_wl[:, self.min_indx]).flatten()
 
         #print(T_fwd_partial_derivs_vs_wl)
-        return ModeMatch.fom_gradient_wavelength_integral_impl(self.T_fwd_vs_wavelength, T_fwd_partial_derivs_vs_wl, self.target_T_fwd(wl).flatten(), self.wavelengths, self.norm_p, self.target_T_fwd_weights(wl).flatten())
+        return fom_gradient_wavelength_integral_impl(self.T_fwd_vs_wavelength, T_fwd_partial_derivs_vs_wl, self.target_T_fwd(wl).flatten(), self.wavelengths, self.norm_p, self.target_T_fwd_weights(wl).flatten())
 
     def get_fom_fields(self, sim):
         fom_fields = get_fields(sim.fdtd,

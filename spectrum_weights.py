@@ -14,4 +14,4 @@ def get_spectrum_weights(simwl, spectrumwl, counts):
         weights[i] = np.trapz(y=counts[locations[i]:locations[i+1]], x=spectrumwl[locations[i]:locations[i+1]])
             
     #Return normalized weights
-    return weights / np.trapz(y=counts, x = spectrumwl)
+    return weights

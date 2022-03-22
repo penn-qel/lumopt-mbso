@@ -14,6 +14,7 @@ import lumapi
 from lumopt.utilities.wavelengths import Wavelengths
 from lumopt.utilities.materials import Material
 from lumopt.lumerical_methods.lumerical_scripts import get_fields
+from wavelengthintegrals import fom_wavelength_integral, fom_gradient_wavelength_integral_impl
 
 class CustomModeMatch(object):
 
@@ -164,7 +165,7 @@ class CustomModeMatch(object):
             self.min_indx = np.where(self.T_fwd_vs_wavelength == min_fom)
             print(self.T_fwd_vs_wavelength)
             return np.array([min_fom.real])
-        return CustomModeMatch.fom_wavelength_integral(self.T_fwd_vs_wavelength, self.wavelengths, self.target_T_fwd, self.norm_p, self.target_T_fwd_weights)
+        return fom_wavelength_integral(self.T_fwd_vs_wavelength, self.wavelengths, self.target_T_fwd, self.norm_p, self.target_T_fwd_weights)
 
     def get_fom_fields(self, sim):
         fom_fields = get_fields(sim.fdtd,
@@ -305,25 +306,6 @@ class CustomModeMatch(object):
             T = np.trapz(T, xarray, axis = 0)
 
         return T.flatten()
-
-    @staticmethod
-    def fom_wavelength_integral(T_fwd_vs_wavelength, wavelengths, target_T_fwd, norm_p, target_T_fwd_weights):
-        target_T_fwd_vs_wavelength = target_T_fwd(wavelengths).flatten()
-        target_T_fwd_weights_vs_wavelength = target_T_fwd_weights(wavelengths).flatten()
-        if len(wavelengths) > 1:
-            wavelength_range = wavelengths.max() - wavelengths.min()
-            assert wavelength_range > 0.0, "wavelength range must be positive."
-            T_fwd_integrand = np.multiply(target_T_fwd_weights_vs_wavelength, np.power(np.abs(target_T_fwd_vs_wavelength), norm_p)) / wavelength_range #Include Here
-            #T_fwd_integrand = np.power(np.abs(target_T_fwd_vs_wavelength), norm_p) / wavelength_range
-            const_term = np.power(np.trapz(y = T_fwd_integrand, x = wavelengths), 1.0 / norm_p)
-            T_fwd_error = np.abs(T_fwd_vs_wavelength.flatten() - target_T_fwd_vs_wavelength)
-            T_fwd_error_integrand = np.multiply(target_T_fwd_weights_vs_wavelength, np.power(T_fwd_error, norm_p)) / wavelength_range #Include here
-            #T_fwd_error_integrand = np.power(T_fwd_error, norm_p) / wavelength_range
-            error_term = np.power(np.trapz(y = T_fwd_error_integrand, x = wavelengths), 1.0 / norm_p)
-            fom = const_term - error_term
-        else:
-            fom = np.abs(target_T_fwd_vs_wavelength) - np.abs(T_fwd_vs_wavelength.flatten() - target_T_fwd_vs_wavelength)
-        return fom.real
     
     @staticmethod
     def add_adjoint_source(sim, monitor_name, source_name, direction, multi_freq_source):
@@ -353,65 +335,4 @@ class CustomModeMatch(object):
             wl = wl[self.min_indx]
             T_fwd_partial_deriv = -1.0 *np.sign(self.T_fwd_vs_wavelength[self.min_indx] - self.target_T_fwd(wl)) * (T_fwd_partial_derivs_vs_wl[:,self.min_indx]).flatten()
             return T_fwd_partial_deriv.flatten().real
-        return CustomModeMatch.fom_gradient_wavelength_integral_impl(self.T_fwd_vs_wavelength, T_fwd_partial_derivs_vs_wl, self.target_T_fwd(wl).flatten(), self.wavelengths, self.norm_p, self.target_T_fwd_weights(wl).flatten())
-
-    @staticmethod
-    def fom_gradient_wavelength_integral_impl(T_fwd_vs_wavelength, T_fwd_partial_derivs_vs_wl, target_T_fwd_vs_wavelength, wl, norm_p, target_T_fwd_weights):
-
-        if wl.size > 1:
-            assert T_fwd_partial_derivs_vs_wl.shape[1] == wl.size
-            
-            wavelength_range = wl.max() - wl.min()
-            T_fwd_error = T_fwd_vs_wavelength - target_T_fwd_vs_wavelength
-            T_fwd_error = np.multiply(target_T_fwd_weights, T_fwd_error)
-            T_fwd_error_integrand = np.power(np.abs(T_fwd_error), norm_p) / wavelength_range
-            const_factor = -1.0 * np.power(np.trapz(y = T_fwd_error_integrand, x = wl), 1.0 / norm_p - 1.0)
-            integral_kernel = np.power(np.abs(T_fwd_error), norm_p - 1) * np.sign(T_fwd_error) / wavelength_range
-            
-            ## Implement the trapezoidal integration as a matrix-vector-product for performance reasons
-            d = np.diff(wl)
-            quad_weight = np.append(np.append(d[0], d[0:-1]+d[1:]),d[-1])/2 #< There is probably a more elegant way to do this
-            v = const_factor * integral_kernel * quad_weight
-            T_fwd_partial_derivs = T_fwd_partial_derivs_vs_wl.dot(v)
-
-            ## This is the much slower (but possibly more readable) code
-            # num_opt_param = T_fwd_partial_derivs_vs_wl.shape[0]
-            # T_fwd_partial_derivs = np.zeros(num_opt_param, dtype = 'complex')
-            # for i in range(num_opt_param):
-            #     T_fwd_partial_deriv = np.take(T_fwd_partial_derivs_vs_wl.transpose(), indices = i, axis = 1)
-            #     T_fwd_partial_derivs[i] = const_factor * np.trapz(y = integral_kernel * T_fwd_partial_deriv, x = wl)
-        else:
-            T_fwd_partial_derivs = -1.0 * np.sign(T_fwd_vs_wavelength - target_T_fwd_vs_wavelength) * T_fwd_partial_derivs_vs_wl.flatten()
-
-        return T_fwd_partial_derivs.flatten().real
-
-    def fom_gradient_wavelength_integral_on_cad(self, sim, grad_var_name, wl):
-        assert np.allclose(wl, self.wavelengths)
-
-        target_T_fwd_vs_wavelength = self.target_T_fwd(wl).flatten()
-        target_T_fwd_weights_vs_wavelength = self.target_T_fwd_weights(wl).flatten()
-        T_fwd_error = self.T_fwd_vs_wavelength - target_T_fwd_vs_wavelength
-        T_fwd_error = np.multiply(target_T_fwd_weights_vs_wavelength, T_fwd_error)
-
-        if wl.size > 1:
-            wavelength_range = wl.max() - wl.min()
-            T_fwd_error_integrand = np.power(np.abs(T_fwd_error), self.norm_p) / wavelength_range
-            const_factor = -1.0 * np.power(np.trapz(y = T_fwd_error_integrand, x = wl), 1.0 / self.norm_p - 1.0)
-            integral_kernel = np.power(np.abs(T_fwd_error), self.norm_p - 1) * np.sign(T_fwd_error) / wavelength_range
-            
-            d = np.diff(wl)
-            quad_weight = np.append(np.append(d[0], d[0:-1]+d[1:]),d[-1])/2 #< There is probably a more elegant way to do this
-            v = const_factor * integral_kernel * quad_weight
-
-            lumapi.putMatrix(sim.fdtd.handle, "wl_scaled_integral_kernel", v)
-            sim.fdtd.eval(('dF_dp_s=size({0});'
-                           'dF_dp2 = reshape(permute({0},[3,2,1]),[dF_dp_s(3),dF_dp_s(2)*dF_dp_s(1)]);'
-                           'T_fwd_partial_derivs=real(mult(transpose(wl_scaled_integral_kernel),dF_dp2));').format(grad_var_name) )
-            T_fwd_partial_derivs_on_cad = sim.fdtd.getv("T_fwd_partial_derivs")
-
-        else:
-            sim.fdtd.eval(('T_fwd_partial_derivs=real({0});').format(grad_var_name) )
-            T_fwd_partial_derivs_on_cad = sim.fdtd.getv("T_fwd_partial_derivs")
-            T_fwd_partial_derivs_on_cad*= -1.0 * np.sign(T_fwd_error)
-
-        return T_fwd_partial_derivs_on_cad.flatten()
+        return fom_gradient_wavelength_integral_impl(self.T_fwd_vs_wavelength, T_fwd_partial_derivs_vs_wl, self.target_T_fwd(wl).flatten(), self.wavelengths, self.norm_p, self.target_T_fwd_weights(wl).flatten())

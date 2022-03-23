@@ -63,7 +63,7 @@ def create_source(xsize, ysize, theta, phi, wavelengths, depth, n=2.4, z=0, grid
     fields = {'E' : E, 'H' : H, 'x': x, 'y': y, 'z':z, 'wl':wavelengths}
 
     if create_file:
-        fdtd = lumapi.FDTD()
+        fdtd = lumapi.FDTD(hide=True)
         lumapi.putMatrix(fdtd.handle, 'x', x)
         lumapi.putMatrix(fdtd.handle, 'y', y)
         lumapi.putMatrix(fdtd.handle, 'z', z*np.ones(1))

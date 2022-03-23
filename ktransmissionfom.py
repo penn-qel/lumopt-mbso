@@ -61,7 +61,7 @@ class KTransmissionFom(TransmissionFom):
         vxv, vyv, wlv = np.meshgrid(vx, vy, fields.wl, indexing = 'ij')
         kx = vxv * wlv
         ky = vyv * wlv
-        weights = kboundary_func(kx.flatten(), ky.flatten()).reshape(fields.x.size, fields.y.size, 1, wavelengths.size, 1)
+        weights = kboundary_func(kx.flatten(), ky.flatten()).reshape(fields.x.size, fields.y.size, 1, fields.wl.size, 1)
 
         fields.E = np.fft.ifftn(Ek*weights, axes=(0,1))
         fields.H = np.fft.ifftn(Hk*weights, axes=(0,1))

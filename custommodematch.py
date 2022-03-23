@@ -36,7 +36,7 @@ class CustomModeMatch(object):
         :param use_maxmin:     Optimize by maximizing min(F(w))
     """
 
-    def __init__(self, monitor_name, direction, Emodefun, Hmodefun, material, multi_freq_src = False, target_T_fwd = lambda wl: np.ones(wl.size), norm_p = 1, target_fom = 0, target_T_fwd_weights = lambda wl: np.ones(wl.size), source_precision = 10e-9, use_maxmin = False):
+    def __init__(self, monitor_name, direction, Emodefun, Hmodefun, material, multi_freq_src = False, target_T_fwd = lambda wl: np.ones(wl.size), norm_p = 1, target_fom = 0, target_T_fwd_weights = lambda wl: np.ones(wl.size), source_precision = 40e-9, use_maxmin = False):
         self.monitor_name = str(monitor_name)
         if not self.monitor_name:
             raise UserWarning('empty monitor name.')

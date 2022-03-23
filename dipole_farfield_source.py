@@ -3,7 +3,7 @@ import lumapi
 import scipy.constants
 import time
 
-def create_source(xsize, ysize, theta, phi, wavelengths, depth, n=2.4, z=0, grid = 20e-9, create_file = True):
+def create_source(xsize, ysize, theta, phi, wavelengths, depth, n=2.4, z=0, grid = 40e-9, create_file = True):
     x = np.linspace(-xsize/2, xsize/2, xsize/grid)
     y = np.linspace(-ysize/2, ysize/2, ysize/grid)
     xv, yv, zv, wlv = np.meshgrid(x, y, np.array(z), wavelengths, indexing = 'ij')

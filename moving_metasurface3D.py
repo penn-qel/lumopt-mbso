@@ -34,13 +34,23 @@ class MovingMetasurface3D(Geometry):
         :param eps_out:         Permittivity of surrounding material
     """
 
-    def __init__(self, posx, posy, rx, ry, min_feature_size, z, h, eps_in, eps_out, phi = None, pillars_rotate = True, height_precision = 10, angle_precision = 20, scaling_factor = 1, phi_scaling = 1):
+    def __init__(self, posx, posy, rx, ry, min_feature_size, z, h, eps_in, eps_out, phi = None, pillars_rotate = True, height_precision = 10, angle_precision = 20, scaling_factor = 1, phi_scaling = 1, limit_nearest_neighbor_cons = True, make_meshgrid = False):
         self.init_x = posx.flatten()
         self.init_y = posy.flatten()
         self.rx = rx.flatten()
         self.ry = ry.flatten()
-        self.offset_x = np.zeros(posx.size).flatten()
-        self.offset_y = np.zeros(posy.size).flatten()
+        
+        #Option for constructing meshgrid out of x and y arrays automatically
+        if make_meshgrid:
+            x0, y0 = np.meshgrid(self.init_x, self.init_y, indexing='ij')
+            rx0, ry0 = np.meshgrid(self.rx, self.ry, indexing = 'ij')
+            self.init_x = x0.flatten()
+            self.init_y = y0.flatten()
+            self.rx = rx0.flatten()
+            self.ry = ry0.flatten()
+
+        self.offset_x = np.zeros(self.init_x.size).flatten()
+        self.offset_y = np.zeros(self.init_x.size).flatten()
         self.z = float(z)
         self.h = float(h)
         self.eps_out = eps_out if isinstance(eps_out, Material) else Material(eps_out)
@@ -66,6 +76,18 @@ class MovingMetasurface3D(Geometry):
         self.phi_scaling = phi_scaling
 
         self.bounds = self.calculate_bounds()
+        self.limit_nearest_neighbor_cons = limit_nearest_neighbor_cons
+
+        #Assert we have a square grid for nearest neighbor calculations by checking N_pillars is a perfect square
+        if self.limit_nearest_neighbor_cons:
+            if make_meshgrid:
+                self.grid_shape = (posx.size, posy.size)
+            else:
+                N = int(np.sqrt(self.posx.size) + 0.5)
+                if self.posx.size == N**2:
+                    self.grid_shape = (N, N)
+                else:
+                    raise UserWarning("Must do built-in meshgrid or use a perfect square of pillars when constraining nearest neighbors only")
 
     def add_geo(self, sim, params, only_update):
         '''Adds the geometry to a Lumerical simulation'''
@@ -259,17 +281,47 @@ class MovingMetasurface3D(Geometry):
             points_down[:,0] = x + rx*np.cos(np.pi*3/2)*np.cos(phi) - ry*np.sin(np.pi*3/2)*np.sin(phi)
             points_down[:,1] = y + rx*np.cos(np.pi*3/2)*np.sin(phi) + ry*np.sin(np.pi*3/2)*np.cos(phi)
 
-            points = np.concatenate((points_right, points_up, points_left, points_down))
-            num_points = points.shape[0]
-            cons = np.zeros(num_points*(num_points-1)//2)
-            counter = 0
+            if not self.limit_nearest_neighbor_cons:
+                points = np.concatenate((points_right, points_up, points_left, points_down))
+                num_points = points.shape[0]
+                cons = np.zeros(num_points*(num_points-1)//2)
+                counter = 0
 
-            for i in range(num_points):
-                for j in range(i+1, num_points):
-                    cons[counter] = (points[i, 0] - points[j, 0])**2 + (points[i,1] - points[j,1])**2 - bound**2
-                    counter +=1
-            
+                for i in range(num_points):
+                    for j in range(i+1, num_points):
+                        cons[counter] = (points[i, 0] - points[j, 0])**2 + (points[i,1] - points[j,1])**2 - bound**2
+                        counter +=1
+                
+                return cons
+
+            #If limited to nearest neighbors, constraint each pillar (i,j) with its (i+1) and (j+1) counterparts
+            #Do a constraint for each pair of points (4 per pillar). Total of (Nx-1)*(Ny-1)*16 constraints. For a square, Nx,Ny = sqrt(N)
+            Nx = self.grid_shape[0]
+            Ny = self.grid_shape[1]
+            points = np.stack((points_right, points_up, points_left, points_down), axis=-1).reshape(Nx, Ny, 2, 4)
+            cons = np.zeros(16*(2*Nx*Ny - Nx - Ny))
+            counter = 0
+            for i in np.arange(Nx-1):
+                for j in np.arange(Ny-1):
+                    for k1 in np.arange(4):
+                        for k2 in np.arange(4):
+                            #side=0 corresponds to pillar to right, side=1 pillar above
+                            for side in np.arange(2):
+                                if side == 0:
+                                    i2 = i+1
+                                    j2 = j
+                                    if i == Nx-1:
+                                        continue
+                                else:
+                                    i2 = i
+                                    j2 = j+1
+                                    if j == Ny-1:
+                                        continue
+
+                                cons[counter] = (points[i,j,0,k1] - points[i2,j2,0,k2])**2 - (points[i,j,1,k1] - points[i2,j2,1,k2])**2 - bound**2
+                                counter += 1
             return cons
+
 
         def jacobian(params):
             '''Returns (8N^2-2N, 5N) array of jacobian'''
@@ -299,47 +351,118 @@ class MovingMetasurface3D(Geometry):
             points_down[:,1] = y + rx*np.cos(np.pi*3/2)*np.sin(phi) + ry*np.sin(np.pi*3/2)*np.cos(phi)
             theta4 = 3*np.pi/2*np.ones(N)
 
-            points = np.concatenate((points_right, points_up, points_left, points_down))
-            theta = np.concatenate((theta1, theta2, theta3, theta4))
-            phi = np.concatenate((phi, phi, phi, phi))
-            num_points = points.shape[0]
 
+            if not self.limit_nearest_neighbor_cons:
+                points = np.concatenate((points_right, points_up, points_left, points_down))
+                theta = np.concatenate((theta1, theta2, theta3, theta4))
+                phi = np.concatenate((phi, phi, phi, phi))
+                num_points = points.shape[0]
+                counter = 0
+                jac = np.zeros((num_points*(num_points-1)//2, params.size))
+
+                for i in range(num_points):
+                    for j in range(i+1, num_points):
+                        v1 = 2*(points[i,0] - points[j,0])
+                        v2 = 2*(points[i,1] - points[j,1])
+
+                        iv = i%4
+                        jv = j%4
+
+                        #d/dxi
+                        jac[counter, iv] = v1
+                        #d/dxj
+                        jac[counter, jv] = -v1
+                        #d/dyi
+                        jac[counter, iv+N] = v2
+                        #d/dyj
+                        jac[counter, jv+N] = -v2
+                        #d/drxi
+                        jac[counter, iv+2*N] = np.cos(theta[i])*np.cos(phi[i])*v1 + np.cos(theta[i])*np.sin(phi[i])*v2
+                        #d/drxj
+                        jac[counter, jv+2*N] = -np.cos(theta[j])*np.cos(phi[j])*v1 - np.cos(theta[j])*np.sin(phi[j])*v2
+                        #d/dryi
+                        jac[counter, iv+3*N] = -np.sin(theta[i])*np.sin(phi[i])*v1 + np.sin(theta[i])*np.cos(phi[i])*v2
+                        #d/dryj
+                        jac[counter, jv+3*N] = np.sin(theta[j])*np.sin(phi[j])*v1 - np.sin(theta[j])*np.cos(phi[j])*v2
+
+                        if self.pillars_rotate:
+                            #d/dphii
+                            jac[counter, iv+4*N] = (-1*(rx[iv]*np.cos(theta[i])*np.sin(theta[i]) + ry[iv]*np.sin(theta[i])*np.cos(phi[i]))*v1 + 
+                                    (rx[iv]*np.cos(theta[i])*np.cos(phi[i]) -ry[iv]*np.sin(theta[i])*np.sin(phi[i])*v2))
+                            #d/dphij
+                            jac[counter, jv+4*N] = ((rx[jv]*np.cos(theta[j])*np.sin(phi[j]) + ry[jv]*np.sin(theta[j])*np.cos(phi[j]))*v1 + 
+                                    (-rx[jv]*np.cos(theta[j])*np.cos(phi[j]) + ry[jv]*np.sin(theta[j])*np.sin(phi[j]))*v2)
+
+                        counter +=1
+
+                return jac
+
+            #Nearest neighbor only option for jacobin
+            Nx = self.grid_shape[0]
+            Ny = self.grid_shape[1]
+            N = x.size
+            points = np.stack((points_right, points_up, points_left, points_down), axis=-1).reshape(Nx, Ny, 2, 4)
+            theta = np.stack((theta1, theta2, theta3, theta4), axis=-1).reshape(Nx, Ny, 4)
+            phi = np.stack((phi, phi, phi, phi), axis=-1).reshape(Nx, Ny, 4)
+            jac = np.zeros(16*(2*N-Nx-Ny), params.size)
             counter = 0
-            jac = np.zeros((num_points*(num_points-1)//2, params.size))
-            for i in range(num_points):
-                for j in range(i+1, num_points):
-                    v1 = 2*(points[i,0] - points[j,0])
-                    v2 = 2*(points[i,1] - points[j,1])
+            for i in np.arange(Nx):
+                for j in np.arange(Ny):
+                    pillarnum = i*Ny + j 
+                    pillarabovenum = i*Ny + j + 1
+                    pillarrightnum = (i+1)*Ny + j
+                    for k1 in np.arange(4):
+                        for k2 in np.arange(4):
+                            for side in np.arange(2):
+                                #Start with pillar to right
+                                if side==0:
+                                    if i == Nx-1:
+                                        continue
+                                    otherpillar=pillarrightnum
+                                    i2 = i+1
+                                    j2 = j
+                                #Then pillar above
+                                else:
+                                    if j == Ny-1:
+                                        continue
+                                    otherpillar=pillarabovenum
+                                    i2 = i
+                                    j2 = j+1
 
-                    iv = i%4
-                    jv = j%4
+                                vx = 2*(points[i,j,0,k1] - points[i2,j2,0,k2])
+                                vy = 2*(points[i,j,1,k1] - points[i2,j2,1,k2])
 
-                    #d/dxi
-                    jac[counter, iv] = v1
-                    #d/dxj
-                    jac[counter, jv] = -v1
-                    #d/dyi
-                    jac[counter, iv+N] = v2
-                    #d/dyj
-                    jac[counter, jv+N] = -v2
-                    #d/drxi
-                    jac[counter, iv+2*N] = np.cos(theta[i])*np.cos(phi[i])*v1 + np.cos(theta[i])*np.sin(phi[i])*v2
-                    #d/drxj
-                    jac[counter, jv+2*N] = -np.cos(theta[j])*np.cos(phi[j])*v1 - np.cos(theta[j])*np.sin(phi[j])*v2
-                    #d/dryi
-                    jac[counter, iv+3*N] = -np.sin(theta[i])*np.sin(phi[i])*v1 + np.sin(theta[i])*np.cos(phi[i])*v2
-                    #d/dryj
-                    jac[counter, jv+3*N] = np.sin(theta[j])*np.sin(phi[j])*v1 - np.sin(theta[j])*np.cos(phi[j])*v2
+                                #d/dxi
+                                jac[counter, pillarnum] = vx
+                                #d/dxj
+                                jac[counter, otherpillar] = -vx
+                                #d/dyi
+                                jac[counter, pillarnum+N] = vy
+                                #d/dyj
+                                jac[counter, otherpillar+N] = -vy
 
-                    if self.pillars_rotate:
-                        #d/dphii
-                        jac[counter, iv+4*N] = (-1*(rx[iv]*np.cos(theta[i])*np.sin(theta[i]) + ry[iv]*np.sin(theta[i])*np.cos(phi[i]))*v1 + 
-                                (rx[iv]*np.cos(theta[i])*np.cos(phi[i]) -ry[iv]*np.sin(theta[i])*np.sin(phi[i])*v2))
-                        #d/dphij
-                        jac[counter, jv+4*N] = ((rx[jv]*np.cos(theta[j])*np.sin(phi[j]) + ry[jv]*np.sin(theta[j])*np.cos(phi[j]))*v1 + 
-                                (-rx[jv]*np.cos(theta[j])*np.cos(phi[j]) + ry[jv]*np.sin(theta[j])*np.sin(phi[j]))*v2)
+                                #d/drxi
+                                jac[counter, pillarnum+2*N] = np.cos(theta[i,j,k1])*np.cos(phi[i,j,k1])*v1 + np.cos(theta[i,j,k1])*np.sin(phi[i,j,k1])*v2
+                                #d/drxj
+                                jac[counter, otherpillar+2*N] = -np.cos(theta[i2,j2,k2])*np.cos(phi[i2,j2,k2])*v1 - np.cos(theta[i2,j2,k2])*np.sin(phi[i2,j2,k2])*v2
+                                #d/dryi
+                                jac[counter, pillarnum+3*N] = -np.sin(theta[i,j,k1])*np.sin(phi[i,j,k1])*v1 + np.sin(theta[i,j,k1])*np.cos(phi[i,j,k1])*v2
+                                #d/dryj
+                                jac[counter, otherpillar+3*N] = np.sin(theta[i2,j2,k2])*np.sin(phi[i2,j2,k2])*v1 - np.sin(theta[i2,j2,k2])*np.cos(phi[i2,j2,k2])*v2
 
-                    counter +=1
+                                if self.pillars_rotate:
+                                    #d/dphii
+                                    jac[counter, pillarnum+4*N] = (-1*(rx[pillarnum]*np.cos(theta[i,j,k1])*np.sin(theta[i,j,k1]) + 
+                                                                    ry[pillarnum]*np.sin(theta[i,j,k1])*np.cos(phi[i,j,k1]))*v1 + 
+                                                                    (rx[pillarnum]*np.cos(theta[i,j,k1])*np.cos(phi[i,j,k1])-
+                                                                        ry[pillarnum]*np.sin(theta[i,j,k1])*np.sin(phi[i,j,k1])*v2))
+                                    #d/dphij
+                                    jac[counter, otherpillar+4*N] = ((rx[otherpillar]*np.cos(theta[i2,j2,k2])*np.sin(phi[i2,j2,k2]) +
+                                                                    ry[otherpillar]*np.sin(theta[i2,j2,k2])*np.cos(phi[i2,j2,k2]))*v1 + 
+                                                                    (-rx[otherpillar]*np.cos(theta[i2,j2,k2])*np.cos(phi[i2,j2,k2]) +
+                                                                    ry[otherpillar]*np.sin(theta[i2,j2,k2])*np.sin(phi[i2,j2,k2]))*v2)
+
+                                counter += 1
 
             return jac
 

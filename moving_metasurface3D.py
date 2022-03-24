@@ -404,7 +404,7 @@ class MovingMetasurface3D(Geometry):
             points = np.stack((points_right, points_up, points_left, points_down), axis=-1).reshape(Nx, Ny, 2, 4)
             theta = np.stack((theta1, theta2, theta3, theta4), axis=-1).reshape(Nx, Ny, 4)
             phi = np.stack((phi, phi, phi, phi), axis=-1).reshape(Nx, Ny, 4)
-            jac = np.zeros(16*(2*N-Nx-Ny), params.size)
+            jac = np.zeros((16*(2*N-Nx-Ny), params.size))
             counter = 0
             for i in np.arange(Nx):
                 for j in np.arange(Ny):
@@ -442,25 +442,25 @@ class MovingMetasurface3D(Geometry):
                                 jac[counter, otherpillar+N] = -vy
 
                                 #d/drxi
-                                jac[counter, pillarnum+2*N] = np.cos(theta[i,j,k1])*np.cos(phi[i,j,k1])*v1 + np.cos(theta[i,j,k1])*np.sin(phi[i,j,k1])*v2
+                                jac[counter, pillarnum+2*N] = np.cos(theta[i,j,k1])*np.cos(phi[i,j,k1])*vx + np.cos(theta[i,j,k1])*np.sin(phi[i,j,k1])*vy
                                 #d/drxj
-                                jac[counter, otherpillar+2*N] = -np.cos(theta[i2,j2,k2])*np.cos(phi[i2,j2,k2])*v1 - np.cos(theta[i2,j2,k2])*np.sin(phi[i2,j2,k2])*v2
+                                jac[counter, otherpillar+2*N] = -np.cos(theta[i2,j2,k2])*np.cos(phi[i2,j2,k2])*vx - np.cos(theta[i2,j2,k2])*np.sin(phi[i2,j2,k2])*vy
                                 #d/dryi
-                                jac[counter, pillarnum+3*N] = -np.sin(theta[i,j,k1])*np.sin(phi[i,j,k1])*v1 + np.sin(theta[i,j,k1])*np.cos(phi[i,j,k1])*v2
+                                jac[counter, pillarnum+3*N] = -np.sin(theta[i,j,k1])*np.sin(phi[i,j,k1])*vx + np.sin(theta[i,j,k1])*np.cos(phi[i,j,k1])*vy
                                 #d/dryj
-                                jac[counter, otherpillar+3*N] = np.sin(theta[i2,j2,k2])*np.sin(phi[i2,j2,k2])*v1 - np.sin(theta[i2,j2,k2])*np.cos(phi[i2,j2,k2])*v2
+                                jac[counter, otherpillar+3*N] = np.sin(theta[i2,j2,k2])*np.sin(phi[i2,j2,k2])*vx - np.sin(theta[i2,j2,k2])*np.cos(phi[i2,j2,k2])*vy
 
                                 if self.pillars_rotate:
                                     #d/dphii
                                     jac[counter, pillarnum+4*N] = (-1*(rx[pillarnum]*np.cos(theta[i,j,k1])*np.sin(theta[i,j,k1]) + 
-                                                                    ry[pillarnum]*np.sin(theta[i,j,k1])*np.cos(phi[i,j,k1]))*v1 + 
+                                                                    ry[pillarnum]*np.sin(theta[i,j,k1])*np.cos(phi[i,j,k1]))*vx + 
                                                                     (rx[pillarnum]*np.cos(theta[i,j,k1])*np.cos(phi[i,j,k1])-
-                                                                        ry[pillarnum]*np.sin(theta[i,j,k1])*np.sin(phi[i,j,k1])*v2))
+                                                                        ry[pillarnum]*np.sin(theta[i,j,k1])*np.sin(phi[i,j,k1])*vy))
                                     #d/dphij
                                     jac[counter, otherpillar+4*N] = ((rx[otherpillar]*np.cos(theta[i2,j2,k2])*np.sin(phi[i2,j2,k2]) +
-                                                                    ry[otherpillar]*np.sin(theta[i2,j2,k2])*np.cos(phi[i2,j2,k2]))*v1 + 
+                                                                    ry[otherpillar]*np.sin(theta[i2,j2,k2])*np.cos(phi[i2,j2,k2]))*vx + 
                                                                     (-rx[otherpillar]*np.cos(theta[i2,j2,k2])*np.cos(phi[i2,j2,k2]) +
-                                                                    ry[otherpillar]*np.sin(theta[i2,j2,k2])*np.sin(phi[i2,j2,k2]))*v2)
+                                                                    ry[otherpillar]*np.sin(theta[i2,j2,k2])*np.sin(phi[i2,j2,k2]))*vy)
 
                                 counter += 1
 

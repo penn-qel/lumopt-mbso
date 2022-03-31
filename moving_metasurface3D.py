@@ -172,13 +172,13 @@ class MovingMetasurface3D(Geometry):
         Eapar = Ea - project(Ea, normal)
 
         #Calculates derivatives of level set, scaled to use opt parameters rather than real ones
-        A = (xv - self.offset_x[pillarv] - self.init_x[pillarv])*np.cos(phi) + (yv - self.offset_y[pillarv] - self.init_y[pillarv])*np.sin(phi)
-        B = -(xv - self.offset_x[pillarv] - self.init_x[pillarv])*np.sin(phi) + (yv - self.offset_y[pillarv] - self.init_y[pillarv])*np.cos(phi)
-        d_dx = np.expand_dims((2*A*np.cos(phi)/np.power(self.rx[pillarv], 2) - 2*B*np.sin(phi)/np.power(self.ry[pillarv], 2))/self.scaling_factor, axis=3)
-        d_dy = np.expand_dims((2*A*np.sin(phi)/np.power(self.rx[pillarv], 2) + 2*B*np.cos(phi)/np.power(self.ry[pillarv], 2))/self.scaling_factor, axis=3)
+        A = (xv - self.offset_x[pillarv] - self.init_x[pillarv])*np.cos(phiv) + (yv - self.offset_y[pillarv] - self.init_y[pillarv])*np.sin(phiv)
+        B = -(xv - self.offset_x[pillarv] - self.init_x[pillarv])*np.sin(phiv) + (yv - self.offset_y[pillarv] - self.init_y[pillarv])*np.cos(phiv)
+        d_dx = np.expand_dims((-2*A*np.cos(phi)/np.power(self.rx[pillarv], 2) + 2*B*np.sin(phi)/np.power(self.ry[pillarv], 2))/self.scaling_factor, axis=3)
+        d_dy = np.expand_dims((-2*A*np.sin(phi)/np.power(self.rx[pillarv], 2) - 2*B*np.cos(phi)/np.power(self.ry[pillarv], 2))/self.scaling_factor, axis=3)
         d_drx = np.expand_dims((-2*np.power(A, 2)/np.power(self.rx[pillarv], 3))/self.scaling_factor, axis=3)
         d_dry = np.expand_dims((-2*np.power(B, 2)/np.power(self.rx[pillarv], 3))/self.scaling_factor, axis=3)
-        d_dphi = np.expand_dims((-2*A*B*(1/np.power(self.rx[pillarv], 2) - 1/np.power(self.ry[pillarv], 2)))/self.phi_scaling, axis=3)
+        d_dphi = np.expand_dims((-2*A*B*(np.power(self.rx[pillarv],2) - np.power(self.ry[pillarv],2))/(np.power(self.rx[pillarv],2)*np.power(self.ry[pillarv],2)))/self.phi_scaling, axis=3)
 
         if self.pillars_rotate:
             grad_mag = np.sqrt(d_dx**2 + d_dy**2 + d_drx**2 + d_dry**2 + d_dphi**2)

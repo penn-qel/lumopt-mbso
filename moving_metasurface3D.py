@@ -83,8 +83,8 @@ class MovingMetasurface3D(Geometry):
             if make_meshgrid:
                 self.grid_shape = (posx.size, posy.size)
             else:
-                N = int(np.sqrt(self.posx.size) + 0.5)
-                if self.posx.size == N**2:
+                N = int(np.sqrt(posx.size) + 0.5)
+                if posx.size == N**2:
                     self.grid_shape = (N, N)
                 else:
                     raise UserWarning("Must do built-in meshgrid or use a perfect square of pillars when constraining nearest neighbors only")

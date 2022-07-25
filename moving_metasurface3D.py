@@ -32,9 +32,10 @@ class MovingMetasurface3D(Geometry):
         :param angle_precision: Number of points along circumference of pillar used to calculate gradient
         :param eps_in:          Permittivity of pillars
         :param eps_out:         Permittivity of surrounding material
+        :param dx:              step size for computing the figure of merit gradient using permittivity perturbations.
     """
 
-    def __init__(self, posx, posy, rx, ry, min_feature_size, z, h, eps_in, eps_out, phi = None, pillars_rotate = True, height_precision = 10, angle_precision = 20, scaling_factor = 1, phi_scaling = 1, limit_nearest_neighbor_cons = True, make_meshgrid = False):
+    def __init__(self, posx, posy, rx, ry, min_feature_size, z, h, eps_in, eps_out, phi = None, pillars_rotate = True, height_precision = 10, angle_precision = 20, scaling_factor = 1, phi_scaling = 1, limit_nearest_neighbor_cons = True, make_meshgrid = False, dx = 10e-9):
         self.init_x = posx.flatten()
         self.init_y = posy.flatten()
         self.rx = rx.flatten()
@@ -74,6 +75,7 @@ class MovingMetasurface3D(Geometry):
         self.min_feature_size = float(min_feature_size)
         self.scaling_factor = scaling_factor
         self.phi_scaling = phi_scaling
+        self.dx = dx
 
         self.bounds = self.calculate_bounds()
         self.limit_nearest_neighbor_cons = limit_nearest_neighbor_cons

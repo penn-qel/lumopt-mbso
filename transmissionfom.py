@@ -16,6 +16,7 @@ from lumopt.utilities.wavelengths import Wavelengths
 from lumopt.figures_of_merit.modematch import ModeMatch
 from lumopt.lumerical_methods.lumerical_scripts import get_fields
 from wavelengthintegrals import fom_wavelength_integral, fom_gradient_wavelength_integral_impl
+from spatial_integral import spatial_integral
 
 class TransmissionFom(object):
     """Calculates the figure of merit by integrating the Poynting vector through a portion of the monitor. 
@@ -65,6 +66,8 @@ class TransmissionFom(object):
         if self.norm_p < 1:
             raise UserWarning('exponent p for norm must be positive.')
         self.use_maxmin = bool(use_maxmin)
+        if self.use_maxmin:
+            raise UserWarning('maxmin formulation not currently supported')
         #self.fom_fields = None
 
     def initialize(self, sim):
@@ -134,8 +137,9 @@ class TransmissionFom(object):
         return fom
 
     def get_adjoint_field_scaling(self, sim):
-        #Scaling factor is 1. Adjoint source itself is calculated exactly
-        return np.ones(self.T_fwd_vs_wavelength.size)
+        omega = 2.0 * np.pi * sp.constants.speed_of_light / self.wavelengths
+        adjoint_source_power = ModeMatch.get_source_power(sim, self.wavelengths)
+        return np.sqrt(self.calc_adjoint_power / adjoint_source_power)
 
     def fom_gradient_wavelength_integral(self, T_fwd_partial_derivs_vs_wl, wl):
         #Use same implementation as ModeMatch
@@ -201,8 +205,18 @@ class TransmissionFom(object):
         H = self.fom_fields.H
 
         #Calculate source
-        Esource = weights*np.cross(np.conj(H), norm)/(eps*2*self.source_power.reshape(1,1,1,wavelengths.size,1)*scipy.constants.epsilon_0)
-        Hsource = weights*np.cross(np.conj(E), norm)/(2*self.source_power.reshape(1,1,1,wavelengths.size,1)*scipy.constants.mu_0)
+        Esource = weights*np.cross(np.conj(H), norm)/(eps*2*self.source_power.reshape(1,1,1,self.wavelengths.size,1)*scipy.constants.epsilon_0)
+        Hsource = weights*np.cross(np.conj(E), norm)/(2*self.source_power.reshape(1,1,1,self.wavelengths.size,1)*scipy.constants.mu_0)
+
+        if not self.multi_freq_src:
+            Esource = Esource[:,:,:,int(self.wavelengths.size/2),np.newaxis,:]
+            Hsource = Hsource[:,:,:,int(self.wavelengths.size/2),np.newaxis,:]
+        power = -0.5*np.dot(np.real(np.cross(Esource, np.conj(Hsource))), norm)
+
+        self.calc_adjoint_power = spatial_integral(power, xarray, yarray, zarray)
+        if not self.multi_freq_src:
+            val = self.calc_adjoint_power
+            self.calc_adjoint_power = val*np.ones(self.wavelengths.size)
 
         lumapi.putMatrix(sim.fdtd.handle, 'x', xarray)
         lumapi.putMatrix(sim.fdtd.handle, 'y', yarray)
@@ -222,6 +236,8 @@ class TransmissionFom(object):
         sim.fdtd.eval("matlabsave('sourcefile.mat', EM);")
         sim.fdtd.select(self.adjoint_source_name)
         sim.fdtd.importdataset("sourcefile.mat") #Is there a way to define a source without saving to .mat?
+        if not self.multi_freq_src:
+            sim.fdtd.setnamed(self.adjoint_source_name, 'override global source settings', False)
 
     @staticmethod
     def add_adjoint_source(sim, monitor_name, source_name, direction, multi_freq_source):
@@ -260,20 +276,7 @@ class TransmissionFom(object):
         weights = boundary_func(xv.flatten(), yv.flatten(), zv.flatten()).reshape((xarray.size, yarray.size, zarray.size, 1))
         integrand = power*weights
 
-        #Integrate over spatial coordinates, skipping single-valued dimension
-        if zarray.size > 1:
-            fom_vs_xy = np.trapz(y = integrand, x=zarray, axis = 2)
-        else:
-            fom_vs_xy = integrand.squeeze()
-        if yarray.size > 1:
-            fom_vs_x = np.trapz(y=fom_vs_xy, x = yarray, axis = 1)
-        else:
-            fom_vs_x = fom_vs_xy.squeeze()
-        if xarray.size > 1:
-            fom_vs_wl = np.trapz(y = fom_vs_x, x = xarray, axis = 0)
-        else:
-            fom_vs_wl = fom_vs_x.squeeze()
-        return fom_vs_wl
+        return spatial_integral(integrand, xarray, yarray, zarray)
 
     @staticmethod
     def add_index_monitor(sim, monitor_name, frequency_points):

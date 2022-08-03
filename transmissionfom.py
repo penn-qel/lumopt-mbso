@@ -29,8 +29,6 @@ class TransmissionFom(object):
     :param multi_freq_src:  bool flag to enable / disable multi-frequency source calculation for adjoint
     :param target_T_fwd:    function describing the target T_forward vs wavelength
     :param boundary_func:   function defining boundary for integral. Returns 1 if within region, 0 if outside
-    :param spot_center:     (x,y) point describing center position of desired focal spot
-    :param spot_radius:     radius of spot to be integrated over. If radius is bigger than monitor size, entire monitor will be used
     :param norm_p:          exponent of the p-norm used to generate the FOM
     :param target_fom:      A target value for the FOM for printing/plotting distance of current design from target
     :param use_maxmin:      Boolean that triggers FOM/gradient calculations based on the worst-performing frequency, rather than average
@@ -292,7 +290,7 @@ class TransmissionFom(object):
             raise UserWarning('no FDTD or varFDTD solver object could be found.')
         sim.fdtd.set('name', index_monitor_name)
         sim.fdtd.setnamed(index_monitor_name, 'override global monitor settings', True)
-        sim.fdtd.setnamed(index_monitor_name, 'frequency points', frequency_points)
+        #sim.fdtd.setnamed(index_monitor_name, 'frequency points', frequency_points)
         sim.fdtd.setnamed(index_monitor_name, 'record conformal mesh when possible', True)
         monitor_type = sim.fdtd.getnamed(monitor_name, 'monitor type')
         geometric_props = ['monitor type']

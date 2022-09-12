@@ -7,10 +7,10 @@ clear;
 redrawoff; #disable GUI updates
 
 #PARAMETERS
-xspan = 30e-6; #simulation span, centered at 0
-yspan = 30e-6;
+xspan = 2e-6; #simulation span, centered at 0
+yspan = 2e-6;
 ztop = 1e-6; #source location, top of sim
-zbottom = -20e-6; #fom location, bottom of sim
+zbottom = -2e-6; #fom location, bottom of sim
 wlmin = 600e-9;
 wlmax = 800e-9;
 freqpoints = 11;
@@ -19,20 +19,23 @@ surf_height = 0.5e-6; #height of metasurface. 0 < z < surf_height
 meshx = 0.03e-6; #x mesh size in opt region
 meshy = 0.03e-6; #y mesh size in opt regiom
 meshz = 0.025e-6; #z mesh size in opt region
-fomspanx = 30e-6; #x/y span of fom monitor
-fomspany = 30e-6;
+fomspanx = 2e-6; #x/y span of fom monitor
+fomspany = 2e-6;
+mesh_accuracy = 3; #integer 1-9. 4 recommended as good tradeoff
+simulation_time = 1e-12; #Maximum time for simulation to simulate
 
 #Define simulation region
 addfdtd;
 set("dimension","3D");
+set("simulation time", simulation_time);
 set("x", 0);
 set("y", 0);
 set("x span", xspan);
 set("y span", yspan);
 set("z max", ztop);
 set("z min", zbottom);
-set("mesh type", "custom non-uniform");
-set("mesh cells per wavelength", 6);
+set("mesh type", "auto non-uniform");
+set("mesh accuracy", mesh_accuracy);
 
 #Add plane wave source
 addplane;
@@ -61,23 +64,6 @@ set("y span", 1.2*yspan);
 set("z min", zbottom*1.2);
 set("z max", 0);
 set("index", nd);
-
-#Create custom mesh
-addmesh;
-set("name", "mesh_surface");
-set("x", 0);
-set("x span", xspan);
-set("y", 0);
-set("y span", yspan);
-set("z min", 0);
-set("z max", surf_height);
-set("override x mesh", 1); #true
-set("override y mesh", 1);
-set("override z mesh", 1);
-set("set maximum mesh step", 1);
-set("dx", meshx);
-set("dy", meshy);
-set("dz", meshz);
 
 ## OPTIMIZATION FIELDS MONITOR 
 addpower;

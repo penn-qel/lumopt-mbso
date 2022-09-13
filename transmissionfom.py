@@ -137,7 +137,7 @@ class TransmissionFom(object):
     def get_adjoint_field_scaling(self, sim):
         omega = 2.0 * np.pi * sp.constants.speed_of_light / self.wavelengths
         adjoint_source_power = ModeMatch.get_source_power(sim, self.wavelengths)
-        return np.sqrt(self.calc_adjoint_power / adjoint_source_power)
+        return 1j*omega/np.sqrt(adjoint_source_power)
 
     def fom_gradient_wavelength_integral(self, T_fwd_partial_derivs_vs_wl, wl):
         #Use same implementation as ModeMatch
@@ -203,8 +203,8 @@ class TransmissionFom(object):
         H = self.fom_fields.H
 
         #Calculate source
-        Esource = weights*np.cross(np.conj(H), norm)/(eps*2*self.source_power.reshape(1,1,1,self.wavelengths.size,1)*scipy.constants.epsilon_0)
-        Hsource = weights*np.cross(np.conj(E), norm)/(2*self.source_power.reshape(1,1,1,self.wavelengths.size,1)*scipy.constants.mu_0)
+        Esource = weights*np.conj(E)
+        Hsource = -1*weights*np.conj(H)
 
         if not self.multi_freq_src:
             Esource = Esource[:,:,:,int(self.wavelengths.size/2),np.newaxis,:]

@@ -23,6 +23,8 @@ def pillar_constraints(geo):
                     cons[counter] = np.sqrt((x[i] - x[j])**2 + (y[i] - y[j])**2) - rad[i] - rad[j] - bound
                     counter +=1
             
+            if np.min(cons) < 0:
+                print('Warning: Constraints violated')
             return cons
 
         #If limited to nearest neighbors, constraint each pillar (i,j) with its (i+1) and (j+1) counterparts

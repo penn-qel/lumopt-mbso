@@ -34,7 +34,7 @@ class TransmissionFom(object):
     :param use_maxmin:      Boolean that triggers FOM/gradient calculations based on the worst-performing frequency, rather than average
     """
 
-    def __init__(self, monitor_name, direction = 'Forward', boundary_func = lambda x, y, z: np.ones(x.size), multi_freq_src = False, target_T_fwd = lambda wl: np.ones(wl.size), target_T_fwd_weights = lambda wl: np.ones(wl.size), norm_p = 1, target_fom = 0, use_maxmin = False):
+    def __init__(self, monitor_name, direction = 'Forward', boundary_func = lambda x, y, z: np.ones(x.size), multi_freq_src = False, target_T_fwd = lambda wl: np.ones(wl.size), target_T_fwd_weights = lambda wl: np.ones(wl.size), norm_p = 1, target_fom = 0, use_maxmin = False, scaling = 1.0e-7):
         self.monitor_name = str(monitor_name)
         if not self.monitor_name:
             raise UserWarning('empty monitor name')
@@ -67,6 +67,7 @@ class TransmissionFom(object):
         if self.use_maxmin:
             raise UserWarning('maxmin formulation not currently supported')
         #self.fom_fields = None
+        self.scaling = scaling
 
     def initialize(self, sim):
         self.check_monitor_alignment(sim)
@@ -137,7 +138,7 @@ class TransmissionFom(object):
     def get_adjoint_field_scaling(self, sim):
         omega = 2.0 * np.pi * sp.constants.speed_of_light / self.wavelengths
         adjoint_source_power = ModeMatch.get_source_power(sim, self.wavelengths)
-        return 1j*omega/np.sqrt(adjoint_source_power)
+        return 1j*omega*self.scaling/(4*self.source_power)
 
     def fom_gradient_wavelength_integral(self, T_fwd_partial_derivs_vs_wl, wl):
         #Use same implementation as ModeMatch
@@ -209,9 +210,9 @@ class TransmissionFom(object):
         if not self.multi_freq_src:
             Esource = Esource[:,:,:,int(self.wavelengths.size/2),np.newaxis,:]
             Hsource = Hsource[:,:,:,int(self.wavelengths.size/2),np.newaxis,:]
-        power = -0.5*np.dot(np.real(np.cross(Esource, np.conj(Hsource))), norm)
+        power = 0.5*(np.dot(np.real(np.cross(Esource, np.conj(Hsource))), norm))
 
-        self.calc_adjoint_power = spatial_integral(power, xarray, yarray, zarray)
+        self.calc_adjoint_power = np.abs(spatial_integral(power, xarray, yarray, zarray))
         if not self.multi_freq_src:
             val = self.calc_adjoint_power
             self.calc_adjoint_power = val*np.ones(self.wavelengths.size)

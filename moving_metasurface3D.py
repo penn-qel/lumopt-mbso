@@ -35,7 +35,7 @@ class MovingMetasurface3D(Geometry):
         :param dx:              step size for computing the figure of merit gradient using permittivity perturbations.
     """
 
-    def __init__(self, posx, posy, rx, ry, min_feature_size, z, h, eps_in, eps_out, phi = None, pillars_rotate = True, height_precision = 10, angle_precision = 20, scaling_factor = 1, phi_scaling = 1/180, limit_nearest_neighbor_cons = True, make_meshgrid = False, dx = 10e-9):
+    def __init__(self, posx, posy, rx, ry, min_feature_size, z, h, eps_in, eps_out, phi = None, pillars_rotate = True, height_precision = 10, angle_precision = 20, scaling_factor = 1, phi_scaling = 1/180, limit_nearest_neighbor_cons = True, make_meshgrid = False, dx = 10e-9, params_debug = False):
         self.init_x = posx.flatten()
         self.init_y = posy.flatten()
         self.rx = rx.flatten()
@@ -79,6 +79,7 @@ class MovingMetasurface3D(Geometry):
 
         self.bounds = self.calculate_bounds()
         self.limit_nearest_neighbor_cons = limit_nearest_neighbor_cons
+        self.params_debug = params_debug
 
         #Assert we have a square grid for nearest neighbor calculations by checking N_pillars is a perfect square
         if self.limit_nearest_neighbor_cons:
@@ -122,6 +123,8 @@ class MovingMetasurface3D(Geometry):
     def update_geometry(self, params, sim = None):
         '''Updates internal values of parameters according to input'''
         self.offset_x, self.offset_y, self.rx, self.ry, self.phi = self.get_from_params(params)
+        if self.params_debug:
+            self.print_current_params()
 
     def calculate_gradients(self, gradient_fields):
         '''Calculates gradient at each wavelength with respect to all parameters'''
@@ -294,3 +297,21 @@ class MovingMetasurface3D(Geometry):
                 fdtd_index = sim.fdtd.getfdtdindex(self.eps_in.name, freq_array, float(freq_array.min()), float(freq_array.max()))
                 self.eps_in.permittivity = np.asarray(np.power(fdtd_index, 2)).flatten()
             sim.fdtd.set('script', struct_script)
+
+    def print_current_params(self, scaled = False):
+        params = self.get_current_params()
+        if self.pillars_rotate:
+            offset_x, offset_y, rx, ry, phi = np.split(params, 5)
+        else:
+            offset_x, offset_y, rx, ry, phi = np.split(params, 4)
+        print('x offset: ')
+        print(offset_x) if scaled else print(self.offset_x)
+        print('y offset: ')
+        print(offset_y) if scaled else print(self.offset_y)
+        print('rx:')
+        print(rx) if scaled else print(self.rx)
+        print('ry:')
+        print(ry) if scaled else print(self.ry)
+        if self.pillars_rotate:
+            print('phi:')
+            print(phi) if scaled else print(self.phi)

@@ -33,10 +33,11 @@ def transmission_vs_NA(opt, sim, figsize = None, dpi = None):
     def create_NA_boundary(NA):
         def boundary(kx, ky):
             return np.square(kx) + np.square(ky) < NA**2
+        return boundary
 
     for i, NA in enumerate(NArange):
-        opt.geometry.kboundary_func = create_NA_boundary(NA)
-        T[i] = opt.geometry.get_fom(sim)
+        opt.fom.kboundary_func = create_NA_boundary(NA)
+        T[i] = opt.fom.get_fom(sim)
 
     fig = plt.figure(figsize = figsize, dpi = dpi)
     ax = fig.add_subplot(1, 1, 1)
@@ -125,53 +126,109 @@ def plot_grad_hist(opt, figsize = None, dpi = None):
     plt.close(fig)
 
     grad_hist = np.vstack(opt.grad_hist)
-    dx, dy, drx, dry, dphi = np.split(np.abs(grad_hist), 5)
+    dx, dy, drx, dry, dphi = np.split(np.abs(grad_hist.transpose()), 5)
 
-    fig = plt.figure()
-    ax1 = fig.add_subplot(5,1,1)
+    fig1 = plt.figure()
+    ax1 = fig1.add_subplot(1,1,1)
     ax1.set_xlabel('Iteration')
     ax1.set_ylabel('Gradient magnitude')
     ax1.set_title('d/dx history')
     ax1.boxplot(dx)
+    ax1.set_yscale('log')
+    plt.savefig('grad_history_dx.png')
+    plt.close(fig1)
 
-    ax2 = fig.add_subplot(5,1,2)
+    fig2 = plt.figure()
+    ax2 = fig2.add_subplot(1,1,1)
     ax2.set_xlabel('Iteration')
     ax2.set_ylabel('Gradient magnitude')
     ax2.set_title('d/dy history')
     ax2.boxplot(dy)   
+    ax2.set_yscale('log')
+    plt.savefig('grad_history_dy.png')
+    plt.close(fig2)
 
-    ax3 = fig.add_subplot(5,1,3)
+    fig3 = plt.figure()
+    ax3 = fig3.add_subplot(1,1,1)
     ax3.set_xlabel('Iteration')
     ax3.set_ylabel('Gradient magnitude')
     ax3.set_title('d/drx history')
-    ax3.boxplot(drx)   
+    ax3.boxplot(drx)  
+    ax3.set_yscale('log')
+    plt.savefig('grad_history_drx.png')
+    plt.close(fig3)
 
-    ax4 = fig.add_subplot(5,1,4)
+    fig4 = plt.figure()
+    ax4 = fig4.add_subplot(1,1,1)
     ax4.set_xlabel('Iteration')
     ax4.set_ylabel('Gradient magnitude')
     ax4.set_title('d/dry history')
-    ax4.boxplot(dry)   
+    ax4.boxplot(dry)
+    ax4.set_yscale('log')
+    plt.savefig('grad_history_dry.png')
+    plt.close(fig4)
 
-    ax5 = fig.add_subplot(5,1,5)
+    fig5 = plt.figure()
+    ax5 = fig5.add_subplot(1,1,1)
     ax5.set_xlabel('Iteration')
     ax5.set_ylabel('Gradient magnitude')
     ax5.set_title('d/dphi history')
     ax5.boxplot(dphi)
+    ax5.set_yscale('log')
+    plt.savefig('grad_history_dphi.png')
+    plt.close(fig5)
 
-    plt.savefig('grad_hist_boxplots.png')
-    plt.close(fig)      
+#Gets array of constraints from dictionary and set of parameters
+def get_constraints(params, constraints_dict):
+    constraint_fun = constraints_dict['fun']
+    return constraint_fun(params)
 
+#Counts number of constraints within a tolerance. Returns count and locations
+def count_violated_constraints(params, constraint_dict, tol = 0):
+    cons = get_constraints(params, constraint_dict)
+    locations = np.nonzero((cons - tol) < 0.0)
+    return locations[0].size
 
+def constraint_hist(params_hist, constraint_dict):
+    iterations = len(params_hist)
+    violations_hist, tol1_hist, tol2_hist, tol3_hist = np.zeros(iterations), np.zeros(iterations), np.zeros(iterations), np.zeros(iterations)
+    for i in range(iterations):
+        violations_hist[i] = count_violated_constraints(params_hist[i], constraint_dict)
+        tol1_hist[i] = count_violated_constraints(params_hist[i], constraint_dict, 0.1e-9)
+        tol2_hist[i] = count_violated_constraints(params_hist[i], constraint_dict, 1e-9)
+        tol3_hist[i] = count_violated_constraints(params_hist[i], constraint_dict, 10e-9)
+
+    fig = plt.figure()
+    ax = fig.add_subplot(1,1,1)
+    ax.set_xlabel('Iteration')
+    ax.set_ylabel('Number of violated constraints')
+    ax.plot(violations_hist, label = 'dx = 0')
+    ax.plot(tol1_hist, label = 'dx = 0.1nm')
+    ax.plot(tol2_hist, label = 'dx = 1 nm')
+    ax.plot(tol3_hist, label = 'dx = 10 nm')
+    plt.savefig('constraint_hist.png')
+    plt.close(fig)
+
+def constraint_report(opt, tol = 1e-9):
+    final_params = opt.params_hist[-1]
+    violations = count_violated_constraints(final_params, opt.optimizer.constraints)
+    tolerance = count_violated_constraints(final_params, opt.optimizer.constraints, tol)
+    print("There are {} violated constraints".format(violations))
+    print("There are {} constraints within tolerance of {} nm".format(tolerance, tol*1e9))
+    constraint_hist(opt.params_hist, opt.optimizer.constraints)
 
 
 #To be called directly after simulation runs. No further simulations needed
-def process_3D_simulation(opt, figsize = None, dpi = None, geom_hist = True, grad_hist = True, trans_vs_NA = False):
+def process_3D_simulation(opt, figsize = None, dpi = None, geom_hist = True, grad_hist = True, do_constraint_report = True, trans_vs_NA = False):
 
     if geom_hist:
         plot_geom_hist(opt, figsize, dpi)
 
     if grad_hist:
         plot_grad_hist(opt, figsize, dpi)
+
+    if do_constraint_report:
+        constraint_report(opt)
 
     sim = Simulation('./', opt.use_var_fdtd, hide_fdtd_cad = True)
     sim.load('forward_0')

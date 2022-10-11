@@ -1,61 +1,65 @@
 import numpy as np
+import itertools
+from nearest_neighbor_iterator import nearest_neighbor_iterator
 
 def pillar_constraints(geo):
     '''Builds constraint objects given geometry'''
     '''Creates upper bound constraint on all pairs of pillars by treating as
     circles with radii equal to major axis radius'''
 
+    num_pillars = geo.offset_x.size
+    
+    def get_pair_iterator():
+        #Creates iterator that generates all possible combinations of pillars. Optionally limited to nearest neighbors.
+        if geo.limit_nearest_neighbor_cons:
+            nx = geo.grid_shape[0]
+            ny = geo.grid_shape[1]
+            return nearest_neighbor_iterator(np.arange(num_pillars), nx, ny)
+        else:
+             return itertools.combinations(np.arange(num_pillars), 2)
+
     def constraint(params):
-        '''Returns (N(N-1)/2,) array of constraints'''
+        '''Returns array of constraints according to pairs of elements'''
         offset_x, offset_y, rx, ry, phi = geo.get_from_params(params)
         x = offset_x + geo.init_x
         y = offset_y + geo.init_y
-        rad = np.maximum(rx, ry)
+        rad = (rx + ry) / 2
         bound = geo.min_feature_size
-        N = x.size
+        cons = []
+        for pair in get_pair_iterator():
+            i, j = pair[0], pair[1]
+            cons.append((np.sqrt((x[i] - x[j])**2 + (y[i] - y[j])**2) - rad[i] - rad[j] - bound))
         
-        if not geo.limit_nearest_neighbor_cons: 
-            cons = np.zeros(N*(N-1)//2)
-            counter = 0
-
-            for i in range(N):
-                for j in range(i+1, N):
-                    cons[counter] = np.sqrt((x[i] - x[j])**2 + (y[i] - y[j])**2) - rad[i] - rad[j] - bound
-                    counter +=1
-            
-            if np.min(cons) < 0:
-                print('Warning: Constraints violated')
-            return cons
-
-        #If limited to nearest neighbors, constraint each pillar (i,j) with its (i+1) and (j+1) counterparts
-        #Total of (Nx-1)*(Ny-1) constraints. For a square, Nx,Ny = sqrt(N)
-        print("Warning: nearest neighbor constraints not fully tested")
-        Nx = geo.grid_shape[0]
-        Ny = geo.grid_shape[1]
-        x = x.reshape(Nx, Ny)
-        y = y.reshape(Nx, Ny)
-        rad = rad.reshape(Nx, Ny)
-        cons = np.zeros((Nx*Ny-Nx-Ny+1))
-        counter = 0
-        for i in np.arange(Nx-1):
-            for j in np.arange(Ny-1):
-                for side in np.arange(2):
-                    #side=0 corresponds to pillar to right, side=1 pillar above
-                    for side in np.arange(2):
-                        if side == 0:
-                            i2 = i+1
-                            j2 = j
-                            if i == Nx-1:
-                                continue
-                        else:
-                            i2 = i
-                            j2 = j+1
-                            if j == Ny-1:
-                                continue
-
-                        cons[counter] = np.sqrt((x[i,j] - x[i2,j2])**2 + (y[i,j] - y[i2,j2])**2) - rad[i,j] - rad[i2,j2] - bound
-                        counter += 1
-        
+        cons = np.array(cons)
+        if np.min(cons) < 0:
+            print('Warning: Constraints violated')
         return cons
 
-    return {'type': 'ineq', 'fun': constraint} 
+    def jacobian(params):
+        offset_x, offset_y, rx, ry, phi = geo.get_from_params(params)
+        x = offset_x + geo.init_x
+        y = offset_y + geo.init_y
+        N = x.size
+        rad = (rx + ry) / 2
+        jac = []
+        for pair in get_pair_iterator():
+            i, j = pair[0], pair[1]
+            dx, dy, drx, dry, dphi = np.zeros(N), np.zeros(N), np.zeros(N), np.zeros(N), np.zeros(N)
+            denom = np.sqrt((x[i] - x[j])**2 + (y[i] - y[j])**2)
+
+            dx[i] = (x[i] - x[j])/denom
+            dx[j] = (x[j] - x[i])/denom
+
+            dy[i] = (y[i] - y[j])/denom
+            dy[j] = (y[j] - y[i])/denom
+
+            drx[i] = -0.5
+            drx[j] = -0.5
+            dry[i] = -0.5
+            dry[j] = -0.5
+
+            jac.append(np.concatenate((dx, dy, drx, dry, dphi)))
+
+        return np.stack(jac)
+
+    return {'type': 'ineq', 'fun': constraint, 'jac': jacobian} 

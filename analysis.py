@@ -179,24 +179,23 @@ def plot_grad_hist(opt, figsize = None, dpi = None):
     plt.close(fig5)
 
 #Gets array of constraints from dictionary and set of parameters
-def get_constraints(params, constraints_dict):
-    constraint_fun = constraints_dict['fun']
-    return constraint_fun(params)
+def get_constraints(params, constraints):
+    return constraints.physical_constraint(params)
 
 #Counts number of constraints within a tolerance. Returns count and locations
-def count_violated_constraints(params, constraint_dict, tol = 0):
-    cons = get_constraints(params, constraint_dict)
+def count_violated_constraints(params, constraints, tol = 0):
+    cons = get_constraints(params, constraints)
     locations = np.nonzero((cons - tol) < 0.0)
     return locations[0].size
 
-def constraint_hist(params_hist, constraint_dict):
+def constraint_hist(params_hist, constraints):
     iterations = len(params_hist)
     violations_hist, tol1_hist, tol2_hist, tol3_hist = np.zeros(iterations), np.zeros(iterations), np.zeros(iterations), np.zeros(iterations)
     for i in range(iterations):
-        violations_hist[i] = count_violated_constraints(params_hist[i], constraint_dict)
-        tol1_hist[i] = count_violated_constraints(params_hist[i], constraint_dict, 0.1e-9)
-        tol2_hist[i] = count_violated_constraints(params_hist[i], constraint_dict, 1e-9)
-        tol3_hist[i] = count_violated_constraints(params_hist[i], constraint_dict, 10e-9)
+        violations_hist[i] = count_violated_constraints(params_hist[i], constraints)
+        tol1_hist[i] = count_violated_constraints(params_hist[i], constraints, 0.1e-9)
+        tol2_hist[i] = count_violated_constraints(params_hist[i], constraints, 1e-9)
+        tol3_hist[i] = count_violated_constraints(params_hist[i], constraints, 10e-9)
 
     fig = plt.figure()
     ax = fig.add_subplot(1,1,1)
@@ -210,17 +209,17 @@ def constraint_hist(params_hist, constraint_dict):
     plt.savefig('constraint_hist.png')
     plt.close(fig)
 
-def constraint_report(opt, tol = 1e-9):
+def constraint_report(opt, constraints, tol = 1e-9):
     final_params = opt.params_hist[-1]
-    violations = count_violated_constraints(final_params, opt.optimizer.constraints)
-    tolerance = count_violated_constraints(final_params, opt.optimizer.constraints, tol)
+    violations = count_violated_constraints(final_params, constraints)
+    tolerance = count_violated_constraints(final_params, constraints, tol)
     print("There are {} violated constraints".format(violations))
     print("There are {} constraints within tolerance of {} nm".format(tolerance, tol*1e9))
-    constraint_hist(opt.params_hist, opt.optimizer.constraints)
+    constraint_hist(opt.params_hist, constraints)
 
 
 #To be called directly after simulation runs. No further simulations needed
-def process_3D_simulation(opt, figsize = None, dpi = None, geom_hist = True, grad_hist = True, do_constraint_report = True, trans_vs_NA = False):
+def process_3D_simulation(opt, constraints, figsize = None, dpi = None, geom_hist = True, grad_hist = True, do_constraint_report = True, trans_vs_NA = False):
 
     if geom_hist:
         plot_geom_hist(opt, figsize, dpi)
@@ -229,7 +228,7 @@ def process_3D_simulation(opt, figsize = None, dpi = None, geom_hist = True, gra
         plot_grad_hist(opt, figsize, dpi)
 
     if do_constraint_report:
-        constraint_report(opt)
+        constraint_report(opt, constraints)
 
     sim = Simulation('./', opt.use_var_fdtd, hide_fdtd_cad = True)
     sim.load('forward_0')

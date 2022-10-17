@@ -23,7 +23,8 @@ def pillar_constraints(geo):
         offset_x, offset_y, rx, ry, phi = geo.get_from_params(params)
         x = offset_x + geo.init_x
         y = offset_y + geo.init_y
-        rad = (rx + ry) / 2
+        rad = np.maximum(rx, ry)
+        #rad = (rx + ry) / 2
         bound = geo.min_feature_size
         cons = []
         for pair in get_pair_iterator():
@@ -33,14 +34,13 @@ def pillar_constraints(geo):
         cons = np.array(cons)
         if np.min(cons) < 0:
             print('Warning: Constraints violated')
-        return cons
+        return cons*geo.scaling_factor
 
     def jacobian(params):
         offset_x, offset_y, rx, ry, phi = geo.get_from_params(params)
         x = offset_x + geo.init_x
         y = offset_y + geo.init_y
         N = x.size
-        rad = (rx + ry) / 2
         jac = []
         for pair in get_pair_iterator():
             i, j = pair[0], pair[1]
@@ -53,13 +53,18 @@ def pillar_constraints(geo):
             dy[i] = (y[i] - y[j])/denom
             dy[j] = (y[j] - y[i])/denom
 
-            drx[i] = -0.5
-            drx[j] = -0.5
-            dry[i] = -0.5
-            dry[j] = -0.5
+            drx[i] = -1 if rx[i] > ry[i] else 0
+            drx[j] = -1 if rx[j] > ry[j] else 0
+            dry[i] = -1 if ry[i] > rx[i] else 0
+            dry[j] = -1 if ry[j] > rx[j] else 0
+            #drx[i] = -0.5
+            #drx[j] = -0.5
+            #dry[i] = -0.5
+            #dry[j] = -0.5
 
             jac.append(np.concatenate((dx, dy, drx, dry, dphi)))
 
         return np.stack(jac)
 
+    #return {'type': 'ineq', 'fun': constraint}
     return {'type': 'ineq', 'fun': constraint, 'jac': jacobian} 

@@ -206,6 +206,7 @@ def constraint_hist(params_hist, constraint_dict):
     ax.plot(tol1_hist, label = 'dx = 0.1nm')
     ax.plot(tol2_hist, label = 'dx = 1 nm')
     ax.plot(tol3_hist, label = 'dx = 10 nm')
+    ax.legend()
     plt.savefig('constraint_hist.png')
     plt.close(fig)
 

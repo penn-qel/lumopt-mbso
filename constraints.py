@@ -55,7 +55,7 @@ class PillarConstraints(object):
         
         cons = np.array(cons)
         if self.print_warning and np.min(cons) < 0:
-            print('Warning: Constraints violated')
+            print('Warning: Constraints violated by {} nm'.format(np.min(cons*1e9)))
         return cons
 
     def scaled_constraint(self, params):

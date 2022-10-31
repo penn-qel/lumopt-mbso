@@ -71,7 +71,6 @@ class MovingMetasurface3D(Geometry):
             raise UserWarning('Initial parameter arrays must have same shape (N,)')
 
         self.pillars_rotate = pillars_rotate
-        self.gradients = list()
         self.min_feature_size = float(min_feature_size)
         self.scaling_factor = scaling_factor
         self.phi_scaling = phi_scaling
@@ -204,7 +203,6 @@ class MovingMetasurface3D(Geometry):
             total_deriv = np.concatenate((deriv_x, deriv_y, deriv_rx, deriv_ry, deriv_phi))
         else:
             total_deriv = np.concatenate((deriv_x, deriv_y, deriv_rx, deriv_ry))
-        self.gradients.append(total_deriv)
         return total_deriv
 
     def get_current_params(self):

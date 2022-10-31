@@ -72,116 +72,42 @@ class Analysis(object):
             plt.savefig(filename)
             plt.close(fig)
 
-    def plot_grad_hist(self, figsize = None, dpi = None):
+    def plot_grad_hist(self, cut_constrained = False, figsize = None, dpi = None):
         '''Plots gradient history of each parameter type'''
         #Iterate through grad history
         N = len(self.opt.grad_hist)
-        dx_mean, dy_mean, drx_mean, dry_mean, dphi_mean = np.zeros(N), np.zeros(N), np.zeros(N), np.zeros(N), np.zeros(N)
-        dx_std, dy_std, drx_std, dry_std, dphi_std = np.zeros(N), np.zeros(N), np.zeros(N), np.zeros(N), np.zeros(N)
-        for i, grads in enumerate(self.opt.grad_hist):
-            if self.opt.geometry.pillars_rotate:
-                dx, dy, drx, dry, dphi = np.split(np.abs(grads), 5)
+        paramslist = ['x', 'y', 'rx', 'ry', 'phi']
+        #List of 5 empty lists, each will correspond to a variable
+        grads = [[], [], [], [], []]
+        for i, grad in enumerate(self.opt.grad_hist):
+            dx, dy, drx, dry, dphi = np.split(np.abs(grad), 5)
+            if cut_constrained:
+                cons = self.constraints.identify_constrained_pillars(self.opt.params_hist[i])
+                dx = np.delete(dx, list(cons))
+                dy = np.delete(dy, list(cons))
+                drx = np.delete(drx, list(cons))
+                dry = np.delete(dry, list(cons))
+                dphi = np.delete(dphi, list(cons))
+            grads[0].append(dx)
+            grads[1].append(dy)
+            grads[2].append(drx)
+            grads[3].append(dry)
+            grads[4].append(dphi)
+
+        for i, param in enumerate(paramslist):
+            if cut_constrained:
+                title = 'grad_history_cons_d' + param + '.png'
             else:
-                dx, dy, drx, dry = np.split(np.abs(grads), 4)
-
-            dx_mean[i] = np.mean(dx)
-            dx_std[i] = np.std(dx)
-            dy_mean[i] = np.mean(dy)
-            dy_std[i] = np.std(dy)
-            drx_mean[i] = np.mean(drx)
-            drx_std[i] = np.std(drx)
-            dry_mean[i] = np.mean(dry)
-            dry_std[i] = np.std(dry)
-            if self.opt.geometry.pillars_rotate:
-                dphi_mean[i] = np.mean(dphi)
-                dphi_std[i] = np.std(dphi)
-
-
-        fig = plt.figure(figsize = figsize, dpi = dpi)
-        ax = fig.add_subplot(1,1,1)
-        x = np.arange(N)
-        ax.errorbar(x, dx_mean, dx_std, label = 'dx')
-        ax.errorbar(x, dy_mean, dy_std, label = 'dy')
-        ax.errorbar(x, drx_mean, drx_std, label = 'drx')
-        ax.errorbar(x, dry_mean, dry_std, label = 'dry')
-        if self.opt.geometry.pillars_rotate:
-            ax.errorbar(x, dphi_mean, dphi_std, label = 'dphi')
-
-        ax.set_xlabel('Iteration')
-        ax.set_ylabel('Gradient magnitude')
-        ax.legend()
-        plt.savefig('grad_hist.png')
-        plt.close(fig)
-
-        fig = plt.figure(figsize = figsize, dpi = dpi)
-        ax = fig.add_subplot(1,1,1)
-        x = np.arange(N)
-        ax.errorbar(x, dx_mean, dx_std, label = 'dx')
-        ax.errorbar(x, dy_mean, dy_std, label = 'dy')
-        ax.errorbar(x, drx_mean, drx_std, label = 'drx')
-        ax.errorbar(x, dry_mean, dry_std, label = 'dry')
-        if self.opt.geometry.pillars_rotate:
-            ax.errorbar(x, dphi_mean, dphi_std, label = 'dphi')
-
-        ax.set_xlabel('Iteration')
-        ax.set_ylabel('Gradient magnitude')
-        ax.set_yscale('log')
-        ax.legend()
-        plt.savefig('grad_hist_log.png')
-        plt.close(fig)
-
-        grad_hist = np.vstack(self.opt.grad_hist)
-        dx, dy, drx, dry, dphi = np.split(np.abs(grad_hist.transpose()), 5)
-
-        fig1 = plt.figure()
-        ax1 = fig1.add_subplot(1,1,1)
-        ax1.set_xlabel('Iteration')
-        ax1.set_ylabel('Gradient magnitude')
-        ax1.set_title('d/dx history')
-        ax1.boxplot(dx)
-        ax1.set_yscale('log')
-        plt.savefig('grad_history_dx.png')
-        plt.close(fig1)
-
-        fig2 = plt.figure()
-        ax2 = fig2.add_subplot(1,1,1)
-        ax2.set_xlabel('Iteration')
-        ax2.set_ylabel('Gradient magnitude')
-        ax2.set_title('d/dy history')
-        ax2.boxplot(dy)   
-        ax2.set_yscale('log')
-        plt.savefig('grad_history_dy.png')
-        plt.close(fig2)
-
-        fig3 = plt.figure()
-        ax3 = fig3.add_subplot(1,1,1)
-        ax3.set_xlabel('Iteration')
-        ax3.set_ylabel('Gradient magnitude')
-        ax3.set_title('d/drx history')
-        ax3.boxplot(drx)  
-        ax3.set_yscale('log')
-        plt.savefig('grad_history_drx.png')
-        plt.close(fig3)
-
-        fig4 = plt.figure()
-        ax4 = fig4.add_subplot(1,1,1)
-        ax4.set_xlabel('Iteration')
-        ax4.set_ylabel('Gradient magnitude')
-        ax4.set_title('d/dry history')
-        ax4.boxplot(dry)
-        ax4.set_yscale('log')
-        plt.savefig('grad_history_dry.png')
-        plt.close(fig4)
-
-        fig5 = plt.figure()
-        ax5 = fig5.add_subplot(1,1,1)
-        ax5.set_xlabel('Iteration')
-        ax5.set_ylabel('Gradient magnitude')
-        ax5.set_title('d/dphi history')
-        ax5.boxplot(dphi)
-        ax5.set_yscale('log')
-        plt.savefig('grad_history_dphi.png')
-        plt.close(fig5)
+                title = 'grad_history_d' + param + '.png'
+            fig = plt.figure()
+            ax = fig.add_subplot(1,1,1)
+            ax.set_xlabel('Iteration')
+            ax.set_ylabel('Gradient magnitude')
+            ax.set_title('d/d' + param + ' history')
+            ax.boxplot(grads[i])
+            ax.set_yscale('log')
+            plt.savefig(title)
+            plt.close(fig)
 
     def plot_constraint_hist(self):
         '''Makes and saves a plot showing # of violated constraints per iteration with various tolerances'''

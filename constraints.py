@@ -105,3 +105,23 @@ class PillarConstraints(object):
             return {'type': 'ineq', 'fun': self.scaled_constraint, 'jac': self.scaled_jacobian}
         else:
             return {'type': 'ineq', 'fun': self.scaled_constraint}
+
+    def identify_violated_constraints(self, params, tol = 0):
+        '''Identifies by constraint index which constraints have been violated within tol'''
+        cons = self.physical_constraint(params)
+        locations = np.nonzero((cons - tol) < 0.0)
+        return locations[0]
+
+    def count_violated_constraints(self, params, tol = 0):
+        '''Counts number of violated constraints within tolerance'''
+        locations = self.identify_violated_constraints(params, tol)
+        return locations.size
+
+    def identify_constrained_pillars(self, params, tol = 0):
+        '''Returns set of pillar indices which have at least one constrained parameter'''
+        constraint_inds = self.identify_violated_constraints(params, tol)
+        constrained_pillars = set()
+        for i, pair in enumerate(self.get_pair_iterator()):
+            if np.isin(i, constraint_inds):
+                constrained_pillars.update(pair)
+        return constrained_pillars

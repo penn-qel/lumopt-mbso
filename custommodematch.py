@@ -249,9 +249,10 @@ class CustomModeMatch(object):
         sim.fdtd.eval("EM.addparameter('lambda', c/f, 'f', f);")
         sim.fdtd.eval("EM.addattribute('E', Ex, Ey, Ez);")
         sim.fdtd.eval("EM.addattribute('H', Hx, Hy, Hz);")
-        sim.fdtd.eval("matlabsave('sourcefile.mat', EM);")
+
         sim.fdtd.select(self.adjoint_source_name)
-        sim.fdtd.importdataset("sourcefile.mat")
+        dataset = sim.fdtd.getv("EM")
+        sim.fdtd.importdataset(dataset)
 
     def get_monitor_normal(self, sim):
         #Returns normal vector based on monitor type and propagation direction

@@ -232,9 +232,9 @@ class TransmissionFom(object):
         sim.fdtd.eval("EM.addparameter('lambda', c/f, 'f', f);")
         sim.fdtd.eval("EM.addattribute('E', Ex, Ey, Ez);")
         sim.fdtd.eval("EM.addattribute('H', Hx, Hy, Hz);")
-        sim.fdtd.eval("matlabsave('sourcefile.mat', EM);")
         sim.fdtd.select(self.adjoint_source_name)
-        sim.fdtd.importdataset("sourcefile.mat") #Is there a way to define a source without saving to .mat?
+        dataset = sim.fdtd.getv("EM")
+        sim.fdtd.importdataset(dataset)
         if not self.multi_freq_src:
             sim.fdtd.setnamed(self.adjoint_source_name, 'override global source settings', False)
 

@@ -11,6 +11,7 @@ import matplotlib.patches as patches
 from matplotlib import animation
 from lumopt.optimization import Optimization
 from lumopt.utilities.simulation import Simulation
+from lumopt.lumerical_methods.lumerical_scripts import get_fields
 
 class Analysis(object):
     """
@@ -22,6 +23,7 @@ class Analysis(object):
         '''Class constructor'''
         self.opt = opt
         self.constraints = constraints
+        self.constraints.disable_warnings()
 
     def transmission_vs_NA(self, figsize = None, dpi = None):
         '''Creates plot of transmission vs NA for ktransmissionfom simulations'''
@@ -68,7 +70,8 @@ class Analysis(object):
             else:
                 filename = './geoms_const/geom_' + str(i) + '.png'
                 cons = self.constraints.identify_constrained_pillars(params)
-            fig = self.plot_elliptical_surface(x*1e6, y*1e6, rx*1e6, ry*1e6, phi, constrained = cons, figsize = figsize, dpi = dpi)
+            fig = Analysis.plot_elliptical_surface(x*1e6, y*1e6, rx*1e6, ry*1e6, phi, constrained = cons, figsize = figsize, dpi = dpi)
+            plt.title('Iteration ' + str(i))
             plt.savefig(filename)
             plt.close(fig)
 
@@ -94,11 +97,14 @@ class Analysis(object):
             grads[3].append(dry)
             grads[4].append(dphi)
 
+        #Creates subfolder to store plots
+        if cut_constrained:
+            dir_name = './grad_hist_cons'
+        else:
+            dir_name = './grad hist'
+        os.mkdir(dir_name)
+
         for i, param in enumerate(paramslist):
-            if cut_constrained:
-                title = 'grad_history_cons_d' + param + '.png'
-            else:
-                title = 'grad_history_d' + param + '.png'
             fig = plt.figure()
             ax = fig.add_subplot(1,1,1)
             ax.set_xlabel('Iteration')
@@ -106,7 +112,7 @@ class Analysis(object):
             ax.set_title('d/d' + param + ' history')
             ax.boxplot(grads[i])
             ax.set_yscale('log')
-            plt.savefig(title)
+            plt.savefig(dir_name + '/d' + param + '.png')
             plt.close(fig)
 
     def plot_constraint_hist(self):
@@ -143,7 +149,7 @@ class Analysis(object):
         print("There are {} constraints within tolerance of {} nm".format(tolerance, tol*1e9))
 
     def savehist(self):
-        '''Saves parameter hist and gradient hist to np file'''
+        '''Saves parameter hist and gradient hist to np files'''
         np.savez('params_hist', self.opt.params_hist)
         np.savez('grad_hist', self.opt.grad_hist)
 
@@ -156,7 +162,8 @@ class Analysis(object):
         sim.load('adjoint_0')
         sim.remove_data_and_save()
 
-    def plot_elliptical_surface(self, x, y, rx, ry, phi, constrained = None, figsize = None, dpi = None):
+    @staticmethod
+    def plot_elliptical_surface(x, y, rx, ry, phi, constrained = None, figsize = None, dpi = None):
         '''Plots geometry of given paramter set. Optionally colors in constraints'''
         maxr = max(np.amax(rx), np.amax(ry))
         fig = plt.figure(figsize = figsize, dpi = dpi)
@@ -173,3 +180,72 @@ class Analysis(object):
         ax.set_xlabel('x (um)')
         ax.set_ylabel('y (um)')
         return fig
+
+    @staticmethod
+    def get_field_from_monitor(monitor_name, use_var_fdtd = False):
+        '''Gets field from given analysis monitor'''
+
+        #Loads and clears current data from simulation
+        sim = Simulation('./', use_var_fdtd, hide_fdtd_cad = True)
+        sim.load('forward_0')
+        sim.fdtd.switchtolayout()
+
+        #Turn off opt fields monitor and on analysis monitor. Only needed for calculating gradient
+        sim.fdtd.setnamed('opt_fields', 'enabled', False)
+        sim.fdtd.setnamed(monitor_name, 'enabled', True)
+        
+        #Runs simulation and treturns fields
+        print('Running analysis simulation for monitor: ' + monitor_name)
+        sim.fdtd.run()
+        fields = get_fields(sim.fdtd, monitor_name = monitor_name, field_result_name = monitor_name + '_fields', get_eps = False, get_D = False, get_H = False, nointerpolation = False)
+        sim.fdtd.switchtolayout()
+        sim.fdtd.setnamed(monitor_name, 'enabled', False)
+        return fields
+
+    @staticmethod
+    def plot_2D_field(ax, field, x, y, cmap):
+        '''Plots a n x m x 3 matrix of n in one dimension and n in other'''
+        X, Y = np.meshgrid(x, y)
+        fieldmag = np.abs(field[:,:,0])**2 + np.abs(field[:,:,1])**2 + np.abs(field[:,:,2])**2
+        im = ax.pcolormesh(X*1e6, Y*1e6, np.transpose(fieldmag), cmap = plt.get_cmap(cmap), shading = 'nearest')
+        plt.colorbar(im, ax=ax)
+
+    @staticmethod
+    def plot_2D_field_from_monitor(monitor_name, wavelengths, cmap, norm_axis = 'z'):
+        '''Plots 2D field from analysis monitor at each wavelength'''
+        fields = Analysis.get_field_from_monitor(monitor_name)
+        dir_name = './' + monitor_name + '_plots'
+        os.mkdir(dir_name)
+        for indx, wl in enumerate(wavelengths):
+            fig = plt.figure()
+            ax = fig.add_subplot(1,1,1)
+            if norm_axis == 'x':
+                Analysis.plot_2D_field(ax, fields.E[0,:,:,indx,:], fields.y, fields.z, cmap)
+                ax.set_xlabel('y (um)')
+                ax.set_ylabel('z (um)')
+            if norm_axis == 'y':
+                Analysis.plot_2D_field(ax, fields.E[:,0,:,indx,:], fields.x, fields.z, cmap)
+                ax.set_xlabel('x (um)')
+                ax.set_ylabel('z (um)')
+            if norm_axis == 'z':
+                Analysis.plot_2D_field(ax, fields.E[:,:,0,indx,:], fields.x, fields.y, cmap)
+                ax.set_xlabel('x (um)')
+                ax.set_ylabel('y (um)')
+            ax.set_title('|E|^2 at wl of {:.0f} nm'.format(wl*1e9))
+            plt.savefig('{}/{:.0f}.png'.format(dir_name, wl*1e9))
+            plt.close(fig)
+
+    @staticmethod
+    def plot_xy_field_from_monitor(monitor_name, wavelengths, cmap):
+        '''Plots 2D xy field from analysis monitor at each wavelength. Wrapper to general function'''
+        Analysis.plot_2D_field_from_monitor(monitor_name, wavelengths, cmap, norm_axis = 'z')
+
+    @staticmethod
+    def plot_xz_field_from_monitor(monitor_name, wavelengths, cmap):
+        '''Plots 2D xz field from analysis monitor at each wavelength. Wrapper to general function'''
+        Analysis.plot_2D_field_from_monitor(monitor_name, wavelengths, cmap, norm_axis = 'y')
+
+    @staticmethod
+    def plot_yz_field_from_monitor(monitor_name, wavelengths, cmap):
+        '''Plots 2D yz field from analysis monitor at each wavelength. Wrapper to general function'''
+        Analysis.plot_2D_field_from_monitor(monitor_name, wavelengths, cmap, norm_axis = 'x')

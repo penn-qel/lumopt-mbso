@@ -125,3 +125,7 @@ class PillarConstraints(object):
             if np.isin(i, constraint_inds):
                 constrained_pillars.update(pair)
         return constrained_pillars
+
+    def disable_warnings(self):
+        '''Turns off functionality to print violation warnings'''
+        self.print_warning = False

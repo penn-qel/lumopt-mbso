@@ -4,58 +4,94 @@ import scipy.constants
 import time
 
 def create_source(xsize, ysize, theta, phi, wavelengths, depth, n=2.4, z=0, grid = 40e-9, create_file = True):
+    """
+    Creates a source in Lumerical format corresponding to a dipole propagated in +z direction through a uniform material
+       
+    :param xsize:       x-span of plane to calculate fields on
+    :param ysize:       y-span of plane to calculate fields on
+    :param theta:       Orientation angle from z-axis of dipole source
+    :param phi:         Orientation angle in xy plane of dipole source
+    :wavelengths:       Array of wavelengths to calculate over
+    :depth:             Distance below plane dipole is located
+    :n:                 Refractive index of material. Default 2.4
+    :z:                 z-position of plane. Default 0
+    :grid:              Spatial sampling size for discretizing calculation.
+    :create_file:       Boolean flag to create a file "sourcefile.mat" holding the field data. Default true
+
+    """
     x = np.linspace(-xsize/2, xsize/2, xsize/grid)
     y = np.linspace(-ysize/2, ysize/2, ysize/grid)
-    xv, yv, zv, wlv = np.meshgrid(x, y, np.array(z), wavelengths, indexing = 'ij')
+    xv, yv, zv, wlv = np.meshgrid(x, y, np.array([z+depth]), wavelengths, indexing = 'ij')
 
-    const = 1
+    if theta < 0 or theta > 90:
+        raise UserWarning('theta should be between 0 and 90 degrees')
+    theta = np.radians(theta)
+    phi = np.radians(phi)
+
+    # I*l, determines radiation power
+    const = 1e-18
 
     Ix = const*np.sin(theta)*np.cos(phi)
     Iy = const*np.sin(theta)*np.sin(phi)
     Iz = const*np.cos(theta)
 
-    #d is depth of source, z is location of input plane
-    height = depth + zv
+    #Normal vector of source, chosen to be along z-direction of new coordinates
+    nz2 = np.array([Ix, Iy, Iz])/np.linalg.norm(np.array([Ix, Iy, Iz]))
+    if theta == 0:
+        nx2 = np.array([1,0,0])
+        ny2 = np.array([0,1,0])
+    else:
+        nx2 = np.cross(nz2, np.array([0,0,1]))/np.linalg.norm(np.cross(nz2, np.array([0,0,1])))
+        ny2 = np.cross(nz2, nx2)
+
+    #Stack points so last axis tells (x,y,z) component
+    points = np.stack((xv,yv,zv), axis=-1)
+
+    #Get components in new coordinates
+    xv2 = np.dot(points, nx2)
+    yv2 = np.dot(points, ny2)
+    zv2 = np.dot(points, nz2)
 
     #Distance from source to points on plane
-    rv = np.sqrt(np.square(xv) + np.square(yv) + np.square(height))
-    thetav = np.arccos(height/rv)
-    phiv = np.arctan2(yv, xv)
+    rv = np.sqrt(np.square(xv2) + np.square(yv2) + np.square(zv2))
+    thetav = np.arccos(zv2/rv)
+    phiv = np.arctan2(yv2, xv2)
 
     beta = 2*np.pi/(wlv/n)
     omega = beta*(3e8/n)
 
-    #Calculate A using eqn 6.94 in Balanis
-    N = np.exp(-1j*beta*rv)/rv
+    exponent = np.exp(-1j*beta*rv)/rv
+    jbr = 1.0/(1j*beta*rv)
+    nu = (scipy.constants.mu_0*scipy.constants.c)/n
 
-    Ax = N*Ix
-    Ay = N*Iy
-    Az = N*Iz
+    #Calculate fields from Balanis pg 282
+    Er = const*nu*np.cos(thetav)/(2*np.pi*np.power(rv, 2))*(1+jbr)*exponent
+    Etheta = 1j*const*nu*beta*np.sin(thetav)/(4*np.pi*rv)*(1+jbr-1/(np.power(beta*rv, 2)))*exponent
+    Hphi = 1j*const*beta*np.sin(thetav)/(4*np.pi*rv)*(1+jbr)*exponent
 
-    #Convert to spherical coordinates
-    Ar = np.sin(thetav)*np.cos(phiv)*Ax + np.sin(thetav)*np.sin(phiv)*Ay + np.cos(thetav)*Az
-    Atheta = np.cos(thetav)*np.cos(phiv)*Ax + np.cos(thetav)*np.sin(thetav)*Ay - np.sin(thetav)*Az
-    Aphi = -np.sin(phiv)*Ax + np.cos(phiv)*Ay
+    #Convert to shifted rectangular coordinates
 
-    #Calculate E using far field approximation using eq 6.101a in Balanis
-    Er = 0
-    Etheta = -1j*omega*Atheta
-    Ephi = -1j*omega*Aphi
+    Ex2 = np.sin(thetav)*np.cos(phiv)*Er + np.cos(thetav)*np.cos(phiv)*Etheta
+    Ey2 = np.sin(thetav)*np.sin(phiv)*Er + np.cos(thetav)*np.sin(phiv)*Etheta
+    Ez2 = np.cos(thetav)*Er - np.sin(thetav)*Etheta
+    E2 = np.stack((Ex2, Ey2, Ez2), axis=-1)
 
-    #Calculate H as well
-    impedance = 377/n
-    Hr = 0
-    Htheta = -Ephi/impedance
-    Hphi = Etheta/impedance
+    Hx2 = -np.sin(phiv)*Hphi
+    Hy2 = np.cos(phiv)*Hphi
+    Hz2 = np.zeros(Hx2.shape)
+    H2 = np.stack((Hx2, Hy2, Hz2), axis=-1)
 
-    #Convert to cartesian coordinates
-    Ex = np.cos(thetav)*np.cos(phiv)*Etheta - np.sin(phiv)*Ephi
-    Ey = np.cos(thetav)*np.sin(phiv)*Etheta + np.cos(phiv)*Ephi
-    Ez = -np.sin(thetav)*Etheta
+    #Convert to real rectangular coordinates
+    xhat = np.array([nx2[0], ny2[0], nz2[0]])
+    yhat = np.array([nx2[1], ny2[1], nz2[1]])
+    zhat = np.array([nx2[2], ny2[2], nz2[2]])
+    Ex = np.dot(E2, xhat)
+    Ey = np.dot(E2, yhat)
+    Ez = np.dot(E2, zhat)
 
-    Hx = np.cos(thetav)*np.cos(phiv)*Htheta - np.sin(phiv)*Hphi
-    Hy = np.cos(thetav)*np.sin(phiv)*Htheta + np.cos(phiv)*Hphi
-    Hz = -np.sin(thetav)*Htheta
+    Hx = np.dot(H2, xhat)
+    Hy = np.dot(H2, yhat)
+    Hz = np.dot(H2, zhat)
 
     E = np.stack((Ex, Ey, Ez), axis=-1)
     H = np.stack((Hx, Hy, Hz), axis=-1)

@@ -33,6 +33,8 @@ class Analysis(object):
         sim = Simulation('./', self.opt.use_var_fdtd, hide_fdtd_cad = True)
         sim.load('forward_0')
 
+        self.opt.fom.enter_analysis()
+
         def create_NA_boundary(NA):
             def boundary(kx, ky):
                 return np.square(kx) + np.square(ky) < NA**2

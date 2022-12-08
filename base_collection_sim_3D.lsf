@@ -7,32 +7,33 @@ clear;
 redrawoff; #disable GUI updates
 
 #PARAMETERS
-xspan = 30e-6; #simulation span, centered at 0
-yspan = 30e-6;
-ztop = 1e-6; #fom location, top of sim
-zbottom = -1e-6; #source location, bottom of sim
+xspan = 2e-6; #simulation span, centered at 0
+yspan = 2e-6;
+ztop = 0.5e-6; #fom location, top of sim
+zbottom = -0.5e-6; #source location, bottom of sim
 wlmin = 600e-9;
 wlmax = 800e-9;
-freqpoints = 11;
+freqpoints = 31;
+wlspacing = "chebyshev"; #chebyshev, uniform, or custom spacing
 nd = 2.4;
 surf_height = 0.5e-6; #height of metasurface. 0 < z < surf_height
-meshx = 0.03e-6; #x mesh size in opt region
-meshy = 0.03e-6; #y mesh size in opt regiom
-meshz = 0.025e-6; #z mesh size in opt region
 fomspanx = 30e-6; #x/y span of fom monitor
 fomspany = 30e-6;
+mesh_accuracy = 3; #integer 1-9
+simulation_time = 0.15e-12; #Maximum time for simulation to simulate
 
 #Define simulation region
 addfdtd;
 set("dimension","3D");
+set("simulation time", simulation_time);
 set("x", 0);
 set("y", 0);
 set("x span", xspan);
 set("y span", yspan);
 set("z max", ztop);
 set("z min", zbottom);
-set("mesh type", "custom non-uniform");
-set("mesh cells per wavelength", 6);
+set("mesh type", "auto non-uniform");
+set("mesh cells per wavelength", mesh_accuracy);
 
 #Add imported source
 addimportedsource;
@@ -49,8 +50,8 @@ set("wavelength start", wlmin);
 set("wavelength stop", wlmax);
 
 #Global monitor settings
+setglobalmonitor("sample spacing", "chebyshev");
 setglobalmonitor("frequency points", freqpoints);
-setglobalmonitor("use wavelength spacing", true);
 
 #Create bulk diamond
 addrect;
@@ -125,7 +126,7 @@ set("enabled", 0);
 
 #Cross-section fields
 addpower;
-set('name', 'cross-section');
+set('name', 'cross_section');
 set('monitor type', '2D Y-normal');
 set('x', 0);
 set('y', 0);

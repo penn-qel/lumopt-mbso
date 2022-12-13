@@ -33,7 +33,7 @@ set("y span", yspan);
 set("z max", ztop);
 set("z min", zbottom);
 set("mesh type", "auto non-uniform");
-set("mesh cells per wavelength", mesh_accuracy);
+set("mesh accuracy", mesh_accuracy);
 
 #Add imported source
 addimportedsource;

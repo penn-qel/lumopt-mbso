@@ -12,6 +12,7 @@ from matplotlib import animation
 from lumopt.optimization import Optimization
 from lumopt.utilities.simulation import Simulation
 from lumopt.lumerical_methods.lumerical_scripts import get_fields
+from ffthelpers import propagate_fields
 
 class Analysis(object):
     """
@@ -213,9 +214,11 @@ class Analysis(object):
         plt.colorbar(im, ax=ax)
 
     @staticmethod
-    def plot_2D_field_from_monitor(monitor_name, wavelengths, cmap, norm_axis = 'z'):
+    def plot_2D_field_from_monitor(monitor_name, wavelengths, cmap, norm_axis = 'z', prop_dist = None):
         '''Plots 2D field from analysis monitor at each wavelength'''
         fields = Analysis.get_field_from_monitor(monitor_name)
+        if prop_dist is not None:
+            fields.E, fields.H = propagate_fields(fields, prop_dist)
         dir_name = './' + monitor_name + '_plots'
         os.mkdir(dir_name)
         for indx, wl in enumerate(wavelengths):
@@ -238,16 +241,16 @@ class Analysis(object):
             plt.close(fig)
 
     @staticmethod
-    def plot_xy_field_from_monitor(monitor_name, wavelengths, cmap):
+    def plot_xy_field_from_monitor(monitor_name, wavelengths, cmap, prop_dist = None):
         '''Plots 2D xy field from analysis monitor at each wavelength. Wrapper to general function'''
-        Analysis.plot_2D_field_from_monitor(monitor_name, wavelengths, cmap, norm_axis = 'z')
+        Analysis.plot_2D_field_from_monitor(monitor_name, wavelengths, cmap, norm_axis = 'z', prop_dist = prop_dist)
 
     @staticmethod
-    def plot_xz_field_from_monitor(monitor_name, wavelengths, cmap):
+    def plot_xz_field_from_monitor(monitor_name, wavelengths, cmap, prop_dist = None):
         '''Plots 2D xz field from analysis monitor at each wavelength. Wrapper to general function'''
-        Analysis.plot_2D_field_from_monitor(monitor_name, wavelengths, cmap, norm_axis = 'y')
+        Analysis.plot_2D_field_from_monitor(monitor_name, wavelengths, cmap, norm_axis = 'y', prop_dist = prop_dist)
 
     @staticmethod
-    def plot_yz_field_from_monitor(monitor_name, wavelengths, cmap):
+    def plot_yz_field_from_monitor(monitor_name, wavelengths, cmap, prop_dist = None):
         '''Plots 2D yz field from analysis monitor at each wavelength. Wrapper to general function'''
-        Analysis.plot_2D_field_from_monitor(monitor_name, wavelengths, cmap, norm_axis = 'x')
+        Analysis.plot_2D_field_from_monitor(monitor_name, wavelengths, cmap, norm_axis = 'x', prop_dist = prop_dist)

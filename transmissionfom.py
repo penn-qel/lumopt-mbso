@@ -10,13 +10,14 @@ import numpy as np
 import scipy as sp
 import scipy.constants
 import lumapi
-import time
+import copy
 
 from lumopt.utilities.wavelengths import Wavelengths
 from lumopt.figures_of_merit.modematch import ModeMatch
 from lumopt.lumerical_methods.lumerical_scripts import get_fields
 from wavelengthintegrals import fom_wavelength_integral, fom_gradient_wavelength_integral_impl
 from spatial_integral import spatial_integral
+import ffthelpers
 
 class TransmissionFom(object):
     """Calculates the figure of merit by integrating the Poynting vector through a portion of the monitor. 
@@ -32,9 +33,12 @@ class TransmissionFom(object):
     :param norm_p:          exponent of the p-norm used to generate the FOM
     :param target_fom:      A target value for the FOM for printing/plotting distance of current design from target
     :param use_maxmin:      Boolean that triggers FOM/gradient calculations based on the worst-performing frequency, rather than average
+    :param prop_dist:       Positive distance to manually propagate fields from monitor to actual FOM plane
     """
 
-    def __init__(self, monitor_name, direction = 'Forward', boundary_func = lambda x, y, z: np.ones(x.size), multi_freq_src = False, target_T_fwd = lambda wl: np.ones(wl.size), target_T_fwd_weights = lambda wl: np.ones(wl.size), norm_p = 1, target_fom = 0, use_maxmin = False, scaling = 1.0e-7):
+    def __init__(self, monitor_name, direction = 'Forward', boundary_func = lambda x, y, z: np.ones(x.size),
+                multi_freq_src = False, target_T_fwd = lambda wl: np.ones(wl.size), target_T_fwd_weights = lambda wl: np.ones(wl.size), 
+                norm_p = 1, target_fom = 0, prop_distance = 0, use_maxmin = False, scaling = 1.0e-7):
         self.monitor_name = str(monitor_name)
         if not self.monitor_name:
             raise UserWarning('empty monitor name')
@@ -66,10 +70,14 @@ class TransmissionFom(object):
         self.use_maxmin = bool(use_maxmin)
         if self.use_maxmin:
             raise UserWarning('maxmin formulation not currently supported')
-        #self.fom_fields = None
         self.scaling = scaling
+        if prop_distance < 0.0:
+            raise UserWarning('Propagation distance should be a positive distance in meters')
+
+        self.prop_distance = prop_distance
 
     def initialize(self, sim):
+        '''Creates necessary monitors and sources at simulation start'''
         self.check_monitor_alignment(sim)
 
         self.wavelengths = ModeMatch.get_wavelengths(sim)
@@ -79,13 +87,16 @@ class TransmissionFom(object):
         TransmissionFom.add_adjoint_source(sim, self.monitor_name, self.adjoint_source_name, adjoint_injection_direction, self.multi_freq_src)
 
     def make_forward_sim(self, sim):
+        '''Called by optimization. Deactivates adjoint source'''
         sim.fdtd.setnamed(self.adjoint_source_name, 'enabled', False)
 
     def make_adjoint_sim(self,sim):
+        '''Called by optimization. Activates and updates adjoint source'''
         sim.fdtd.setnamed(self.adjoint_source_name, 'enabled', True)
         self.import_adjoint_source(sim)
 
     def check_monitor_alignment(self, sim):
+        '''Called as part of initialization. Checks monitor orientation and aligment to mesh'''
 
         ## Here, we check that the FOM_monitor is properly aligned with the mesh
         if sim.fdtd.getnamednumber(self.monitor_name) != 1:
@@ -118,6 +129,7 @@ class TransmissionFom(object):
             print('WARNING: The monitor "{}" is not aligned with the grid. Its distance to the nearest mesh point is {}. This can introduce small phase errors which sometimes result in inaccurate gradients.'.format(self.monitor_name,dist_from_nearest_mesh_point))
 
     def get_fom(self, sim):
+        '''Calculates FOM from forward simulation'''
         self.fom_fields = self.get_fom_fields(sim)
         self.source_power = ModeMatch.get_source_power(sim, self.wavelengths)
         norm = self.get_monitor_normal(sim)
@@ -136,11 +148,13 @@ class TransmissionFom(object):
         return fom
 
     def get_adjoint_field_scaling(self, sim):
+        '''Calculate factor to scale adjoint source by'''
         omega = 2.0 * np.pi * sp.constants.speed_of_light / self.wavelengths
         adjoint_source_power = ModeMatch.get_source_power(sim, self.wavelengths)
         return 1j*omega*self.scaling/(4*self.source_power)
 
     def fom_gradient_wavelength_integral(self, T_fwd_partial_derivs_vs_wl, wl):
+        '''Wrapper for function to integrate partial derivatives over wavelength'''
         #Use same implementation as ModeMatch
         assert np.allclose(wl, self.wavelengths)
 
@@ -153,6 +167,7 @@ class TransmissionFom(object):
         return fom_gradient_wavelength_integral_impl(self.T_fwd_vs_wavelength, T_fwd_partial_derivs_vs_wl, self.target_T_fwd(wl).flatten(), self.wavelengths, self.norm_p, self.target_T_fwd_weights(wl).flatten())
 
     def get_fom_fields(self, sim):
+        '''Gets fields from fom monitor and propagates if necessary'''
         fom_fields = get_fields(sim.fdtd,
                             monitor_name = self.monitor_name,
                             field_result_name = 'fom_fields',
@@ -160,10 +175,14 @@ class TransmissionFom(object):
                             get_D = False,
                             get_H = True,
                             nointerpolation = False)
+
+        #Manually calculates propagation a certain distance and updates fields in class
+        if self.prop_distance != 0:
+            fom_fields.E, fom_fields.H = ffthelpers.propagate_fields(fom_fields, self.prop_distance)
         return fom_fields
 
     def get_monitor_normal(self, sim):
-        #Returns normal vector based on monitor type and propagation direction
+        '''Returns normal vector based on monitor type and propagation direction'''
         monitor_type = sim.fdtd.getnamed(self.monitor_name, 'monitor type')
         geo_props, normal = ModeMatch.cross_section_monitor_props(monitor_type)
         if normal == 'x':
@@ -179,7 +198,7 @@ class TransmissionFom(object):
         return vector
 
     def import_adjoint_source(self, sim):
-        #Imports data to define adjoint source profile
+        '''Calculates and imports data to define adjoint source profile'''
         norm = self.get_monitor_normal(sim)
         if self.multi_freq_src:
             wavelengths = self.wavelengths
@@ -203,19 +222,23 @@ class TransmissionFom(object):
         E = self.fom_fields.E
         H = self.fom_fields.H
 
-        #Calculate source
-        Esource = weights*np.conj(E)
-        Hsource = -1*weights*np.conj(H)
+        adj_fields = copy.deepcopy(self.fom_fields)
 
+        #Calculate source
+        adj_fields.E = weights*np.conj(E)
+        adj_fields.H = -1*weights*np.conj(H)
+
+        #Propagate back to monitor if necessary
+        if self.prop_distance != 0:
+            Esource, Hsource = ffthelpers.propagate_fields(adj_fields, self.prop_distance)
+        else:
+            Esource, Hsource = adj_fields.E, adj_fields.H
+
+        #Select center wavelength if not using a multi-frequency source
         if not self.multi_freq_src:
             Esource = Esource[:,:,:,int(self.wavelengths.size/2),np.newaxis,:]
             Hsource = Hsource[:,:,:,int(self.wavelengths.size/2),np.newaxis,:]
-        power = 0.5*(np.dot(np.real(np.cross(Esource, np.conj(Hsource))), norm))
 
-        self.calc_adjoint_power = np.abs(spatial_integral(power, xarray, yarray, zarray))
-        if not self.multi_freq_src:
-            val = self.calc_adjoint_power
-            self.calc_adjoint_power = val*np.ones(self.wavelengths.size)
 
         lumapi.putMatrix(sim.fdtd.handle, 'x', xarray)
         lumapi.putMatrix(sim.fdtd.handle, 'y', yarray)
@@ -240,7 +263,7 @@ class TransmissionFom(object):
 
     @staticmethod
     def add_adjoint_source(sim, monitor_name, source_name, direction, multi_freq_source):
-    #Adds adjoint source object to simulation, but does not import field profile
+        '''Adds adjoint source object to simulation, but does not import field profile'''
         if sim.fdtd.getnamednumber('FDTD') == 1:
             sim.fdtd.addimportedsource()
         else:
@@ -262,6 +285,7 @@ class TransmissionFom(object):
 
     @staticmethod
     def calculate_transmission_vs_wl(fom_fields, normal, boundary_func):
+        '''Calculates Poynting vector and integrates over space'''
         norm = normal / np.linalg.norm(normal)
         xarray = fom_fields.x.flatten()
         yarray = fom_fields.y.flatten()
@@ -279,6 +303,7 @@ class TransmissionFom(object):
 
     @staticmethod
     def add_index_monitor(sim, monitor_name, frequency_points):
+        '''Adds an index monitor matching fom monitor so that get_eps is possible'''
         sim.fdtd.select(monitor_name)
         if sim.fdtd.getnamednumber(monitor_name) != 1:
             raise UserWarning("a single object named '{}' must be defined in the base simulation.".format(monitor_name))
@@ -312,8 +337,8 @@ class TransmissionFom(object):
 
     @staticmethod
     def callable_spot_boundary_func(r, x0 = 0, y0 = 0, z0 = 0, axis = 'z'):
-        #Returns a boundary function that defines a spot with radius r around a central coordinate
-        #with normal axis. Can be used as constructor input for FOM object.
+        '''Returns a boundary function that defines a spot with radius r around a central coordinate
+        with normal axis. Can be used as constructor input for FOM object.'''
         if axis == 'x':
             def spot_boundary(x,y,z):
                 return np.sqrt(np.power(y-y0, 2) + np.power(z-z0, 2)) <= r
@@ -330,6 +355,8 @@ class TransmissionFom(object):
 
     @staticmethod
     def callable_spot_boundary_func_2D(r, x0 = 0, y0 = 0, axis = 'y'):
+        '''Returns a boundary function that defines a spot with radius r around a central coordinate
+        with normal axis. Can be used as constructor input for FOM object. For use in 2D simulations'''
         if axis == 'x':
             def spot_boundary(x,y,z):
                 return np.abs(y - y0) <= r

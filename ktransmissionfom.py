@@ -65,8 +65,8 @@ class KTransmissionFom(TransmissionFom):
             return fields
 
         #Uses saved fields instead to skip copying from lumerical and performing forward fourier transform
-        fields.E, fields.H = ffthelpers.filterkspace(self.fields, self.kboundary_func, self.Ek, self.Hk, self.kx, self.ky, self.bufx, self.bufy)
-        return fields
+        self.fields.E, self.fields.H = ffthelpers.filterkspace(self.fields, self.kboundary_func, self.Ek, self.Hk, self.kx, self.ky, self.bufx, self.bufy)
+        return self.fields
 
     def enter_analysis(self):
         '''Sets flag to save computation time when repeatedly calculating ift in post-analysis'''

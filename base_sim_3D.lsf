@@ -14,6 +14,7 @@ zbottom = -2e-6; #fom location, bottom of sim
 wlmin = 600e-9;
 wlmax = 800e-9;
 freqpoints = 11;
+wlspacing = "chebyshev"; #chebyshev, uniform, or custom spacing
 nd = 2.4;
 surf_height = 0.5e-6; #height of metasurface. 0 < z < surf_height
 meshx = 0.03e-6; #x mesh size in opt region
@@ -51,6 +52,7 @@ set("wavelength start", wlmin);
 set("wavelength stop", wlmax);
 
 #Global monitor settings
+setglobalmonitor("sample spacing", wlspacing);
 setglobalmonitor("frequency points", freqpoints);
 setglobalmonitor("use wavelength spacing", true);
 

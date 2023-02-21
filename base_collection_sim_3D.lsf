@@ -50,8 +50,9 @@ set("wavelength start", wlmin);
 set("wavelength stop", wlmax);
 
 #Global monitor settings
-setglobalmonitor("sample spacing", "chebyshev");
+setglobalmonitor("sample spacing", wlspacing);
 setglobalmonitor("frequency points", freqpoints);
+setglobalmonitor("use wavelength spacing", true);
 
 #Create bulk diamond
 addrect;

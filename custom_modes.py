@@ -12,6 +12,8 @@ import lumapi
 from lumopt.lumerical_methods.lumerical_scripts import get_fields
 from lumopt.utilities.scipy_wrappers import wrapped_GridInterpolator
 from interpolate_fields import interpolate_Efield, interpolate_Hfield
+from lumopt.utilities.fields import Fields
+from ffthelpers import propagate_fields
 
 def AiryDisk(depth, radius, index, x0, y0, z0, norm = np.array([0, 0, -1]), pol_norm = np.array([1, 0, 0])):
     #Depth = focal depth of lens
@@ -125,5 +127,47 @@ def InterpolateMonitor(filename, monitorname = 'fom'):
 
     def Hm(x,y,z,wl):
         return interpolate_Hfield(x, y, z, wl, fields)
+
+    return Em, Hm
+
+def AiryDiskBackpropagated(meas_depth, wavelengths, focal_depth, radius, index, x0, y0, z0, norm = np.array([0, 0, -1]), pol_norm = np.array([1, 0, 0]), grid_res = 15e-9):
+    '''Returns backpropagated version of Airy Disk. Separate from callable function to conserve memory'''
+
+    #Create functions to calculate Airy disk
+    Eairy, Hairy = AiryDiskVectorized(focal_depth, radius, index, x0, y0, z0, norm = np.array([0, 0, -1]), pol_norm = np.array([1, 0, 0]))
+
+    #Generate coordinate grids for numerical evaluation. Assumes a rectangular size that spans the full radius
+    x = np.linspace(-radius, radius, int(2*radius/grid_res) + 1)
+    z = np.array([-1*focal_depth])
+    xv, yv, zv, wlv = np.meshgrid(x, x, z, wavelengths, indexing = 'ij')
+
+    print("Calculating Airy fields")
+    E = Eairy(xv.flatten(), yv.flatten(), zv.flatten(), wlv.flatten()).reshape((x.size, x.size, 1, len(wavelengths), 3))
+    H = Hairy(xv.flatten(), yv.flatten(), zv.flatten(), wlv.flatten()).reshape((x.size, x.size, 1, len(wavelengths), 3)) 
+
+    #Construct fields object of result
+    fields = Fields(x, x, z, wavelengths.asarray(), E, None, index**2* np.ones(E.shape, dtype = np.cfloat), H)
+
+    print("Backpropagating fields")
+    #Backpropagate E and H. Replace in fields object
+    fields.E, fields.H = propagate_fields(fields, (meas_depth - focal_depth))
+    fields.z = np.array([-1*meas_depth])
+
+    print("Creating wrapped interpolator")
+
+    return fields
+
+def Interpolate_AiryDiskBackpropagated(meas_depth, wavelengths, focal_depth, radius, index, x0, y0, z0, norm = np.array([0, 0, -1]), pol_norm = np.array([1, 0, 0]), grid_res = 15e-9):
+    '''Returns callable functions based on interpolating the backpropagated fields'''
+
+    #Calculates final field object
+    fields = AiryDiskBackpropagated(meas_depth, wavelengths, focal_depth, radius, index, x0, y0, z0, norm, pol_norm, grid_res)
+
+    #Creates callables based on interpolation function
+    def Em(x, y, z, wl):
+        return interpolate_Efield(x,y,z,wl, fields)
+
+    def Hm(x,y,z,wl):
+        return interpolate_Hfield(x,y,z,wl, fields)
 
     return Em, Hm

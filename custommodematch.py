@@ -15,6 +15,7 @@ from lumopt.utilities.wavelengths import Wavelengths
 from lumopt.utilities.materials import Material
 from lumopt.lumerical_methods.lumerical_scripts import get_fields
 from wavelengthintegrals import fom_wavelength_integral, fom_gradient_wavelength_integral_impl
+from spatial_integral import spatial_integral
 
 class CustomModeMatch(object):
 
@@ -225,13 +226,7 @@ class CustomModeMatch(object):
         Hsource = np.cross(np.conj(Em), norm)/scipy.constants.mu_0
 
         modepower = np.dot(np.real(np.cross(Em, np.conj(Hm))), norm)
-        if zarray.size > 1:
-            modepower = np.trapz(modepower, zarray, axis = 2)
-        if yarray.size > 1:
-            modepower = np.trapz(modepower, yarray, axis = 1)
-        if xarray.size > 1:
-            modepower = np.trapz(modepower, xarray, axis = 0)
-        self.modepower = modepower.flatten()
+        self.modepower = spatial_integral(modepower, xarray, yarray, zarray)
 
         #Push field data into adjoint source
         lumapi.putMatrix(sim.fdtd.handle, 'x', xarray)

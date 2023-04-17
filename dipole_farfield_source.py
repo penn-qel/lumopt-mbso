@@ -19,8 +19,8 @@ def create_source(xsize, ysize, theta, phi, wavelengths, depth, n=2.4, z=0, grid
     :create_file:       Boolean flag to create a file "sourcefile.mat" holding the field data. Default true
 
     """
-    x = np.linspace(-xsize/2, xsize/2, xsize/grid)
-    y = np.linspace(-ysize/2, ysize/2, ysize/grid)
+    x = np.linspace(-xsize/2, xsize/2, int(xsize/grid))
+    y = np.linspace(-ysize/2, ysize/2, int(ysize/grid))
     xv, yv, zv, wlv = np.meshgrid(x, y, np.array([z+depth]), wavelengths, indexing = 'ij')
 
     if theta < 0 or theta > 90:

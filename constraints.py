@@ -7,8 +7,10 @@
 ###################################################################
 
 import numpy as np
+from scipy.optimize import NonlinearConstraint
 import itertools
 from nearest_neighbor_iterator import nearest_neighbor_iterator
+from scipy.sparse import csr_matrix
 
 class PillarConstraints(object):
     """
@@ -28,6 +30,7 @@ class PillarConstraints(object):
         self.manual_jac = True
         if not (self.radius_type == 'mean' or self.radius_type == 'max'):
             raise UserWarning("Valid radius types are 'mean' and 'max'")
+        self.num_constraints = sum(1 for _ in self.get_pair_iterator())
     
     def get_pair_iterator(self):
         '''Creates iterator that generates all possible combinations of pillars. Optionally limited to nearest neighbors.'''
@@ -63,37 +66,50 @@ class PillarConstraints(object):
         return self.physical_constraint(params)*self.geo.scaling_factor
 
     def scaled_jacobian(self, params):
-        '''Returns jacobian on same scale as the scaled constraint'''
+        '''Returns jacobian on same scale as the scaled constraint in sparse array format'''
         offset_x, offset_y, rx, ry, phi = self.geo.get_from_params(params)
         x = offset_x + self.geo.init_x
         y = offset_y + self.geo.init_y
         N = x.size
-        jac = []
+        row,col,jac = [np.empty(self.num_constraints*8) for _ in range(3)]
+        loc = 0
+        row_number = 0
         for pair in self.get_pair_iterator():
+            '''Calculates nonzero Jacobian elements. There should be 8 for each pair'''
             i, j = pair[0], pair[1]
-            dx, dy, drx, dry, dphi = np.zeros(N), np.zeros(N), np.zeros(N), np.zeros(N), np.zeros(N)
             denom = np.sqrt((x[i] - x[j])**2 + (y[i] - y[j])**2)
 
-            dx[i] = (x[i] - x[j])/denom
-            dx[j] = (x[j] - x[i])/denom
+            #Calculate positional components
+            dxi = (x[i]-x[j])/denom
+            dxj = (x[j]-x[i])/denom
+            dyi = (y[i]-y[j])/denom
+            dyj = (y[j]-y[i])/denom
 
-            dy[i] = (y[i] - y[j])/denom
-            dy[j] = (y[j] - y[i])/denom
-
+            #Calculate radial components
             if self.radius_type == 'max':
-                drx[i] = -1 if rx[i] > ry[i] else 0
-                drx[j] = -1 if rx[j] > ry[j] else 0
-                dry[i] = -1 if ry[i] > rx[i] else 0
-                dry[j] = -1 if ry[j] > rx[j] else 0
+                drxi = -1 if rx[i] > ry[i] else 0
+                drxj = -1 if rx[j] > ry[j] else 0
+                dryi = -1 if ry[i] > rx[i] else 0
+                dryj = -1 if ry[j] > rx[j] else 0
             else:
-                drx[i] = -0.5
-                drx[j] = -0.5
-                dry[i] = -0.5
-                dry[j] = -0.5
+                drxi = -0.5
+                drxj = -0.5
+                dryi = -0.5
+                dryj = -0.5
 
-            jac.append(np.concatenate((dx, dy, drx, dry, dphi)))
+            #Assign locations and values to relevant arrays
+            row[loc],col[loc],jac[loc],loc=row_number,i,dxi,loc+1
+            row[loc],col[loc],jac[loc],loc=row_number,j,dxj,loc+1
+            row[loc],col[loc],jac[loc],loc=row_number,N+i,dyi,loc+1
+            row[loc],col[loc],jac[loc],loc=row_number,N+j,dyj,loc+1
+            row[loc],col[loc],jac[loc],loc=row_number,2*N+i,drxi,loc+1
+            row[loc],col[loc],jac[loc],loc=row_number,2*N+j,drxj,loc+1
+            row[loc],col[loc],jac[loc],loc=row_number,3*N+i,dryi,loc+1
+            row[loc],col[loc],jac[loc],loc=row_number,3*N+j,dryj,loc+1
 
-        return np.stack(jac)
+            row_number += 1
+
+        return csr_matrix((jac, (row,col)), shape=(self.num_constraints,5*N))
 
     def physical_jacobian(self, params):
         '''Returns jacobian relative to the actual parameter values'''
@@ -102,9 +118,20 @@ class PillarConstraints(object):
     def get_constraint_dict(self):
         '''Returns dict defining constraints to be used in SLSQP optimization'''
         if self.manual_jac:
-            return {'type': 'ineq', 'fun': self.scaled_constraint, 'jac': self.scaled_jacobian}
+            def jac_array(params):
+                sparse_jac = self.scaled_jacobian(params)
+                return sparse_jac.toarray()
+            return {'type': 'ineq', 'fun': self.scaled_constraint, 'jac': jac_array}
         else:
             return {'type': 'ineq', 'fun': self.scaled_constraint}
+
+    def get_constraint_obj(self):
+        '''returns NonlinearConstraint object to be used in trust-constr optimization'''
+        return NonlinearConstraint(fun = self.scaled_constraint,
+                                    lb = np.zeros(self.num_constraints),
+                                    ub = np.zeros(self.num_constraints),
+                                    jac = self.scaled_jacobian,
+                                    keep_feasible = False)
 
     def identify_violated_constraints(self, params, tol = 0):
         '''Identifies by constraint index which constraints have been violated within tol'''

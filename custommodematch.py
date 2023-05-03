@@ -10,8 +10,10 @@ import numpy as np
 import scipy as sp
 import scipy.constants
 import lumapi
+import os
 
 from lumopt.utilities.wavelengths import Wavelengths
+from lumopt.figures_of_merit.modematch import ModeMatch
 from lumopt.utilities.materials import Material
 from lumopt.lumerical_methods.lumerical_scripts import get_fields
 from wavelengthintegrals import fom_wavelength_integral, fom_gradient_wavelength_integral_impl
@@ -33,11 +35,10 @@ class CustomModeMatch(object):
         :param norm_p:         exponent of the p-norm used to generate the figure of merit; use to generate the FOM.
         :param target_fom:     A target value for the figure of merit. This allows to print/plot the distance of the current
                                    design from a target value
-        :param source_precision: Grid size used for calculating custom source profile
         :param use_maxmin:     Optimize by maximizing min(F(w))
     """
 
-    def __init__(self, monitor_name, direction, Emodefun, Hmodefun, material, multi_freq_src = False, target_T_fwd = lambda wl: np.ones(wl.size), norm_p = 1, target_fom = 0, target_T_fwd_weights = lambda wl: np.ones(wl.size), source_precision = 40e-9, use_maxmin = False):
+    def __init__(self, monitor_name, direction, Emodefun, Hmodefun, material, multi_freq_src = False, target_T_fwd = lambda wl: np.ones(wl.size), norm_p = 1, target_fom = 0, target_T_fwd_weights = lambda wl: np.ones(wl.size), use_maxmin = False):
         self.monitor_name = str(monitor_name)
         if not self.monitor_name:
             raise UserWarning('empty monitor name.')
@@ -68,9 +69,6 @@ class CustomModeMatch(object):
         self.norm_p = int(norm_p)
         if self.norm_p < 1:
             raise UserWarning('exponent p for norm must be positive.')
-        self.source_precision = float(source_precision)
-        if self.source_precision < 0:
-            raise UserWarning('Source precision must be positive')
 
         self.material = material if isinstance(material, Material) else Material(material)
 
@@ -82,10 +80,18 @@ class CustomModeMatch(object):
 
     def initialize(self, sim):
         self.check_monitor_alignment(sim)
-        self.wavelengths = CustomModeMatch.get_wavelengths(sim)
+        self.wavelengths = ModeMatch.get_wavelengths(sim)
         adjoint_injection_direction = 'Backward' if self.direction == 'Forward' else 'Forward'
+
+        #Run forward simulation to get field grid
+        print("Running config sim")
+        sim.save('temp')
+        sim.fdtd.run()
+        fields = self.get_fom_fields(sim)
+        sim.fdtd.switchtolayout()
         CustomModeMatch.add_adjoint_source(sim, self.monitor_name, self.adjoint_source_name, adjoint_injection_direction, self.multi_freq_src)
-        self.import_adjoint_source(sim)
+        self.import_adjoint_source(sim, fields)
+        os.remove('temp.fsp')
 
     def make_forward_sim(self, sim):
         sim.fdtd.setnamed(self.adjoint_source_name, 'enabled', False)
@@ -184,23 +190,13 @@ class CustomModeMatch(object):
         #return self.adjoint_scaling
         return np.conj(self.phase_prefactors)*omega*1j / adjoint_source_power
 
-    def import_adjoint_source(self, sim):
+    def import_adjoint_source(self, sim, fields):
         '''Imports adjoint source profile based off of the custom profile given in declarization'''
 
         #Get coordinate grid
-        xmin = sim.fdtd.getnamed(self.adjoint_source_name, 'x min')
-        xmax = sim.fdtd.getnamed(self.adjoint_source_name, 'x max')
-        ymin = sim.fdtd.getnamed(self.adjoint_source_name, 'y min')
-        ymax = sim.fdtd.getnamed(self.adjoint_source_name, 'y max')
-        zmin = sim.fdtd.getnamed(self.adjoint_source_name, 'z min')
-        zmax = sim.fdtd.getnamed(self.adjoint_source_name, 'z max')
-
-        xarray = np.linspace(xmin, xmax, int((xmax-xmin)/self.source_precision)+1)
-        yarray = np.linspace(ymin, ymax, int((ymax-ymin)/self.source_precision)+1)
-        zarray = np.linspace(zmin, zmax, int((zmax-zmin)/self.source_precision)+1)
-
-        if sim.fdtd.getnamed('FDTD', 'dimension') == '2D':
-            zarray = np.array([0])
+        xarray = fields.x
+        yarray = fields.y
+        zarray = fields.z
 
         eps = self.material.get_eps(self.wavelengths)
         #Use all wavelengths or only center wavelength
@@ -208,7 +204,6 @@ class CustomModeMatch(object):
             wavelengths = self.wavelengths
         else:
             wavelengths = np.array([self.wavelengths[int(self.wavelengths.size/2)]])
-            eps = np.array([eps[int(self.wavelengths.size/2)]])
 
         xv, yv, zv, wlv = np.meshgrid(xarray, yarray, zarray, wavelengths, indexing = 'ij')
 
@@ -248,6 +243,8 @@ class CustomModeMatch(object):
         sim.fdtd.select(self.adjoint_source_name)
         dataset = sim.fdtd.getv("EM")
         sim.fdtd.importdataset(dataset)
+        if not self.multi_freq_src:
+            sim.fdtd.setnamed(self.adjoint_source_name, 'override global source settings', False)
 
     def get_monitor_normal(self, sim):
         #Returns normal vector based on monitor type and propagation direction
@@ -264,13 +261,6 @@ class CustomModeMatch(object):
         if self.direction == 'Backward':
             vector = vector * -1
         return vector
-
-    @staticmethod
-    def get_wavelengths(sim):
-        return Wavelengths(sim.fdtd.getglobalsource('wavelength start'), 
-                           sim.fdtd.getglobalsource('wavelength stop'),
-                           sim.fdtd.getglobalmonitor('frequency points')).asarray()
-
 
     @staticmethod
     def get_source_power(sim, wavelengths):

@@ -146,11 +146,17 @@ class PillarConstraints(object):
 
     def get_constraint_obj(self):
         '''returns NonlinearConstraint object to be used in trust-constr optimization'''
-        return NonlinearConstraint(fun = self.scaled_constraint,
-                                    lb = np.zeros(self.num_constraints),
-                                    ub = np.zeros(self.num_constraints),
-                                    jac = self.scaled_jacobian,
-                                    keep_feasible = False)
+        if self.manual_jac:
+            return NonlinearConstraint(fun = self.scaled_constraint,
+                                        lb = np.zeros(self.num_constraints),
+                                        ub = np.zeros(self.num_constraints),
+                                        jac = self.scaled_jacobian,
+                                        keep_feasible = False)
+        else:
+            return NonlinearConstraint(fun = self.scaled_constraint,
+                                        lb = np.zeros(self.num_constraints),
+                                        ub = np.zeros(self.num_constraints),
+                                        keep_feasible = False)            
 
     def identify_violated_constraints(self, params, tol = 0):
         '''Identifies by constraint index which constraints have been violated within tol'''

@@ -11,6 +11,7 @@ from scipy.optimize import NonlinearConstraint
 import itertools
 from nearest_neighbor_iterator import nearest_neighbor_iterator
 from scipy.sparse import csr_matrix
+from collections import deque
 
 class PillarConstraints(object):
     """
@@ -18,9 +19,10 @@ class PillarConstraints(object):
         :param radius_type:     Flag determining if calculating mean or max of ellipses' two radii. Valid inputs 'mean' or 'max'
         :param manual_jac:      Boolean determining whether to provide manual jacobian calculation or to use finite differences
         :param print_warning:   Boolean determining whether to print when a constraint has a value < 0
+        :param save_list:       Boolean determining whether to generate and save the list of constraints pairs once at start up
     """
 
-    def __init__(self, geo, radius_type = 'mean', manual_jac = True, print_warning = True):
+    def __init__(self, geo, radius_type = 'mean', manual_jac = True, print_warning = True, save_list = False):
         '''The constructor for the PillarConstraints class'''
 
         self.geo = geo
@@ -30,10 +32,27 @@ class PillarConstraints(object):
         self.manual_jac = True
         if not (self.radius_type == 'mean' or self.radius_type == 'max'):
             raise UserWarning("Valid radius types are 'mean' and 'max'")
+        self.save_list = save_list
+        self.constraint_list = None
         self.num_constraints = sum(1 for _ in self.get_pair_iterator())
     
     def get_pair_iterator(self):
+        '''Returns saved list of pairs if it exists or calls generator otherwise'''
+        #Returns iterable list if it exists
+        if self.constraint_list is not None:
+            return self.constraint_list
+
+        #Generates list on first run through
+        if self.save_list:
+            self.constraint_list = deque(self.get_pair_iterator_impl())
+            print("Constrained pairs saved")
+            return self.constraint_list
+
+        return self.get_pair_iterator_impl()
+
+    def get_pair_iterator_impl(self):
         '''Creates iterator that generates all possible combinations of pillars. Optionally limited to nearest neighbors.'''
+        print("Generating constraints")
         if self.geo.limit_nearest_neighbor_cons:
             nx = self.geo.grid_shape[0]
             ny = self.geo.grid_shape[1]

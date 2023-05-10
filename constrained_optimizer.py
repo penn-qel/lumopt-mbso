@@ -1,5 +1,5 @@
 ################################################
-# Script: metasurface.py
+# Script: constrained_optimizer.py
 
 # Description: This script replaces the optimizer wrapper to allow for linear constraints
 # Author: Amelia Klein

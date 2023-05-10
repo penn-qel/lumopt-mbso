@@ -44,6 +44,7 @@ class PillarConstraints(object):
 
         #Generates list on first run through
         if self.save_list:
+            print("Generating constraints")
             self.constraint_list = deque(self.get_pair_iterator_impl())
             print("Constrained pairs saved")
             return self.constraint_list
@@ -52,7 +53,6 @@ class PillarConstraints(object):
 
     def get_pair_iterator_impl(self):
         '''Creates iterator that generates all possible combinations of pillars. Optionally limited to nearest neighbors.'''
-        print("Generating constraints")
         if self.geo.limit_nearest_neighbor_cons:
             nx = self.geo.grid_shape[0]
             ny = self.geo.grid_shape[1]

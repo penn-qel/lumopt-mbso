@@ -65,23 +65,6 @@ set("z min", zbottom*1.2);
 set("z max", 0);
 set("index", nd);
 
-#Create custom mesh
-addmesh;
-set("name", "mesh_surface");
-set("x", 0);
-set("x span", xspan);
-set("y", 0);
-set("y span", yspan);
-set("z min", 0);
-set("z max", surf_height);
-set("override x mesh", 1); #true
-set("override y mesh", 1);
-set("override z mesh", 1);
-set("set maximum mesh step", 1);
-set("dx", meshx);
-set("dy", meshy);
-set("dz", meshz);
-
 ## OPTIMIZATION FIELDS MONITOR 
 addpower;
 set('name','opt_fields');

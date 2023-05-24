@@ -16,7 +16,7 @@ from lumopt.utilities.wavelengths import Wavelengths
 from lumopt.figures_of_merit.modematch import ModeMatch
 from lumopt.utilities.materials import Material
 from lumopt.lumerical_methods.lumerical_scripts import get_fields
-from wavelengthintegrals import fom_wavelength_integral, fom_gradient_wavelength_integral_impl
+from wavelengthintegrals import fom_wavelength_integral, fom_gradient_wavelength_integral_impl, fom_gradient_wavelength_integral_on_cad_impl
 from spatial_integral import spatial_integral
 
 class CustomModeMatch(object):
@@ -322,3 +322,7 @@ class CustomModeMatch(object):
             T_fwd_partial_deriv = -1.0 *np.sign(self.T_fwd_vs_wavelength[self.min_indx] - self.target_T_fwd(wl)) * (T_fwd_partial_derivs_vs_wl[:,self.min_indx]).flatten()
             return T_fwd_partial_deriv.flatten().real
         return fom_gradient_wavelength_integral_impl(self.T_fwd_vs_wavelength, T_fwd_partial_derivs_vs_wl, self.target_T_fwd(wl).flatten(), self.wavelengths, self.norm_p, self.target_T_fwd_weights(wl).flatten())
+
+    def fom_gradient_wavelength_integral_on_cad(self, sim, grad_var_name, wl):
+        assert np.allclose(wl, self.wavelengths)
+        return fom_gradient_wavelength_integral_on_cad_impl(sim, grad_var_name, self.T_fwd_vs_wavelength, self.target_T_fwd(wl).flatten(), wl, self.norm_p, self.target_T_fwd_weights(wl).flatten())

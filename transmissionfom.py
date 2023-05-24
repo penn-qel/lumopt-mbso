@@ -15,7 +15,7 @@ import copy
 from lumopt.utilities.wavelengths import Wavelengths
 from lumopt.figures_of_merit.modematch import ModeMatch
 from lumopt.lumerical_methods.lumerical_scripts import get_fields
-from wavelengthintegrals import fom_wavelength_integral, fom_gradient_wavelength_integral_impl
+from wavelengthintegrals import fom_wavelength_integral, fom_gradient_wavelength_integral_impl, fom_gradient_wavelength_integral_on_cad_impl
 from spatial_integral import spatial_integral
 import ffthelpers
 
@@ -366,3 +366,7 @@ class TransmissionFom(object):
         else:
             raise UserWarning("Axis should be 'x' or 'y'")
         return spot_boundary
+
+    def fom_gradient_wavelength_integral_on_cad(self, sim, grad_var_name, wl):
+        assert np.allclose(wl, self.wavelengths)
+        return fom_gradient_wavelength_integral_on_cad_impl(sim, grad_var_name, self.T_fwd_vs_wavelength, self.target_T_fwd(wl).flatten(), wl, self.norm_p, self.target_T_fwd_weights(wl).flatten())

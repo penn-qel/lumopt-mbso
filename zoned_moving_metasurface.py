@@ -59,7 +59,7 @@ class ZonedMovingMetasurface3D(MovingMetasurface3D):
     	self.inner = inner
     	self.outer = outer
         dist = np.sqrt(np.square(self.init_x) + np.square(self.init_y))
-        self.active = = dist >= inner and dist < outer
+        self.active = (dist >= inner and dist < outer)
         if np.count_nonzero(self.active) == 0:
         	raise UserWarning("No pillars fall within active region")
         return self.active

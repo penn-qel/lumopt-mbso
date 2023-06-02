@@ -112,3 +112,11 @@ class ZonedMovingMetasurface3D(MovingMetasurface3D):
 
     	#Reconcatenates with only active portion
     	return np.concatenate(deriv_x[active,:], deriv_y[active,:], deriv_rx[active,:], deriv_ry[active,:], deriv_phi[active,:])
+
+    def set_from_full_params(self, params):
+    	'''Sets internal values from list of all parameters, not just currently active ones'''
+    	super().update_geometry(params)
+
+    def get_full_params(self):
+    	'''Gets list of all parameters, not just currently active ones'''
+    	return super().get_current_params()

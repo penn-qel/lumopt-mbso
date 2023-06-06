@@ -128,7 +128,10 @@ class PillarConstraints(object):
 
             row_number += 1
 
-        return csr_matrix((jac, (row,col)), shape=(self.num_constraints,5*N))
+        jac = csr_matrix((jac, (row,col)), shape=(self.num_constraints,5*N)).toarray()
+        if hasattr(self.geo, "active"):
+            return jac[:,np.concatenate((self.geo.active, self.geo.active, self.geo.active, self.geo.active, self.geo.active))]
+        return jac
 
     def physical_jacobian(self, params):
         '''Returns jacobian relative to the actual parameter values'''
@@ -137,26 +140,9 @@ class PillarConstraints(object):
     def get_constraint_dict(self):
         '''Returns dict defining constraints to be used in SLSQP optimization'''
         if self.manual_jac:
-            def jac_array(params):
-                sparse_jac = self.scaled_jacobian(params)
-                return sparse_jac.toarray()
-            return {'type': 'ineq', 'fun': self.scaled_constraint, 'jac': jac_array}
+            return {'type': 'ineq', 'fun': self.scaled_constraint, 'jac': self.scaled_jacobian}
         else:
-            return {'type': 'ineq', 'fun': self.scaled_constraint}
-
-    def get_constraint_obj(self):
-        '''returns NonlinearConstraint object to be used in trust-constr optimization'''
-        if self.manual_jac:
-            return NonlinearConstraint(fun = self.scaled_constraint,
-                                        lb = np.zeros(self.num_constraints),
-                                        ub = np.zeros(self.num_constraints),
-                                        jac = self.scaled_jacobian,
-                                        keep_feasible = False)
-        else:
-            return NonlinearConstraint(fun = self.scaled_constraint,
-                                        lb = np.zeros(self.num_constraints),
-                                        ub = np.zeros(self.num_constraints),
-                                        keep_feasible = False)            
+            return {'type': 'ineq', 'fun': self.scaled_constraint}           
 
     def identify_violated_constraints(self, params, tol = 0):
         '''Identifies by constraint index which constraints have been violated within tol'''

@@ -52,8 +52,8 @@ def plot_geom_hist(params_hist, geometry, show_constraints = False, constraints 
     #Iterate through param history and plot frames
     for i, params in enumerate(params_hist):
         scaled_params = geometry.get_from_params(params)
-        x = scaled_params[0] + self.opt.geometry.init_x
-        y = scaled_params[1] + self.opt.geometry.init_y
+        x = scaled_params[0] + geometry.init_x
+        y = scaled_params[1] + geometry.init_y
         rx = scaled_params[2]
         ry = scaled_params[3]
         phi = scaled_params[4]

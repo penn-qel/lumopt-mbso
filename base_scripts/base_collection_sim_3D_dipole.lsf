@@ -1,0 +1,124 @@
+#Builds metalens simulation from
+#data in a file
+switchtolayout;
+deleteall;
+clear;
+
+redrawoff; #disable GUI updates
+
+#PARAMETERS
+xspan = 2e-6; #simulation span, centered at 0
+yspan = 2e-6;
+ztop = 0.5e-6; #fom location, top of sim
+zsource = -0.1e-6; #dipole location
+zbottom = -0.5e-6; #bottom of sim
+wlmin = 600e-9;
+wlmax = 800e-9;
+freqpoints = 31;
+wlspacing = "chebyshev"; #chebyshev, uniform, or custom spacing
+nd = 2.4;
+surf_height = 0.5e-6; #height of metasurface. 0 < z < surf_height
+theta = 90; #Source angle theta from z axis
+phi = 0; #Source angle phi
+fomspanx = 30e-6; #x/y span of fom monitor
+fomspany = 30e-6;
+mesh_accuracy = 3; #integer 1-9
+simulation_time = 0.15e-12; #Maximum time for simulation to simulate
+
+#Define simulation region
+addfdtd;
+set("dimension","3D");
+set("simulation time", simulation_time);
+set("x", 0);
+set("y", 0);
+set("x span", xspan);
+set("y span", yspan);
+set("z max", ztop);
+set("z min", zbottom);
+set("mesh type", "auto non-uniform");
+set("mesh accuracy", mesh_accuracy);
+
+#Add dipole source
+adddipole;
+set("name", "source");
+set("x", 0);
+#set("x span", xspan);
+set("y", 0);
+#set("y span", yspan);
+set("z", zsource);
+set("wavelength start", wlmin);
+set("wavelength stop", wlmax);
+set("theta", theta);
+set("phi", phi);
+
+#Global monitor settings
+setglobalmonitor("sample spacing", wlspacing);
+setglobalmonitor("frequency points", freqpoints);
+setglobalmonitor("use wavelength spacing", true);
+
+#Create bulk diamond
+addrect;
+set("name", "bulk diamond");
+set("x", 0);
+set("x span", 1.2*xspan);
+set("y", 0);
+set("y span", 1.2*yspan);
+set("z min", zbottom*1.2);
+set("z max", 0);
+set("index", nd);
+
+## OPTIMIZATION FIELDS MONITOR 
+addpower;
+set('name','opt_fields');
+set('monitor type','3D');
+set("x", 0);
+set("y", 0);
+set("x span", xspan);
+set("y span", yspan);
+set("z max", 1.1*surf_height);
+set("z min", -0.1*surf_height);
+
+#FOM Fields
+addpower;
+set('name', 'fom');
+set('monitor type','2D Z-normal');
+set('x',0);
+set('y',0.0);
+set('x span', fomspanx);
+set('y span', fomspany);
+set('z', ztop);
+
+#Focal Fields
+addpower;
+set('name', 'focal');
+set('monitor type','2D Z-normal');
+set('x',0);
+set('y',0.0);
+set('x span', xspan);
+set('y span', yspan);
+set('z', zbottom);
+set("enabled", 0);
+
+#Bottom fields
+addpower;
+set('name', 'bottomfields');
+set('monitor type','2D Z-normal');
+set('x',0);
+set('y',0.0);
+set('x span', xspan);
+set('y span', yspan);
+set('z', 0);
+set("enabled", 0);
+
+#Cross-section fields
+addpower;
+set('name', 'cross_section');
+set('monitor type', '2D Y-normal');
+set('x', 0);
+set('y', 0);
+set('x span', xspan);
+set('z max', ztop);
+set('z min', zbottom);
+set('enabled', 0);
+
+redrawon; #enable GUI updating

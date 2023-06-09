@@ -143,8 +143,8 @@ def print_constraint_report(params_hist, constraints, tol = 1e-9):
 
 def savehist(params_hist, grad_hist):
     '''Saves parameter hist and gradient hist to np files'''
-    np.savez('params_hist', self.opt.params_hist)
-    np.savez('grad_hist', self.opt.grad_hist)
+    np.savez('params_hist', params_hist)
+    np.savez('grad_hist', grad_hist)
 
 def clear_savedata(use_var_fdtd=False):
     '''Clears simulation data from hard drive. Should be run when analysis is complete'''

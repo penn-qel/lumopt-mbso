@@ -16,7 +16,7 @@ import matplotlib.patches as patches
 from lumopt.geometries.geometry import Geometry
 from lumopt.utilities.materials import Material
 from lumopt.utilities.wavelengths import Wavelengths
-from interpolate_fields import interpolate_fields
+from utils.interpolate_fields import interpolate_fields
 
 class MovingMetasurface3D(Geometry):
     """

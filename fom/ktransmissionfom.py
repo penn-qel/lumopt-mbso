@@ -5,7 +5,7 @@
 # Author: Amelia Klein
 ###############################################################
 
-from transmissionfom import TransmissionFom
+from fom.transmissionfom import TransmissionFom
 import numpy as np
 import scipy.constants
 import utils.ffthelpers as ffthelpers

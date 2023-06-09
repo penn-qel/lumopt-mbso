@@ -92,7 +92,7 @@ class NLoptOptimizer(Maximizer):
         '''Defines constraint function fitting with necessary format'''
         print("Calculating constraints")
         result[:] = -1*self.constraints.scaled_constraint(x)
-        grad[:] = -1*self.constraints.scaled_jacobian(x).toarray()
+        grad[:] = -1*self.constraints.scaled_jacobian(x)
 
     def set_constraints(self, opt):
         '''Wraps constraint object into correct definition. Constraints defined to be valid when less than 0'''

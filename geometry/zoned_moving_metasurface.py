@@ -18,7 +18,7 @@ from lumopt.geometries.geometry import Geometry
 from lumopt.utilities.materials import Material
 from lumopt.utilities.wavelengths import Wavelengths
 from interpolate_fields import interpolate_fields
-from moving_metasurface3D import MovingMetasurface3D
+from geometry.moving_metasurface3D import MovingMetasurface3D
 
 class ZonedMovingMetasurface3D(MovingMetasurface3D):
     """

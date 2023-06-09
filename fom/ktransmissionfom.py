@@ -8,7 +8,7 @@
 from transmissionfom import TransmissionFom
 import numpy as np
 import scipy.constants
-import ffthelpers
+import utils.ffthelpers as ffthelpers
 from lumopt.figures_of_merit.modematch import ModeMatch
 
 class KTransmissionFom(TransmissionFom):

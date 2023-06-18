@@ -30,7 +30,7 @@ def transmission_vs_NA(fom, name = 'forward_0', figsize = None, dpi = None, use_
         return boundary
 
     for i, NA in enumerate(NArange):
-        fom.kboundary_func = create_NA_boundary(NA)
+        fom.set_kboundary_func(create_NA_boundary(NA))
         T[i] = fom.get_fom(sim)
 
     fig = plt.figure(figsize = figsize, dpi = dpi)

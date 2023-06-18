@@ -75,3 +75,6 @@ class KTransmissionFom(TransmissionFom):
     def enter_analysis(self):
         '''Sets flag to save computation time when repeatedly calculating ift in post-analysis'''
         self.analysis_mode = True
+
+    def set_kboundary_func(self, func):
+        self.kboundary_func = func

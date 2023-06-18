@@ -71,3 +71,6 @@ class KTransmissionCustomAdj(CustomModeMatch):
         '''Sets flag to save computation time when repeatedly calculating ift in post-analysis'''
         self.ktransfom.enter_analysis()
         self.do_cmm_fom = False
+
+    def set_kboundary_func(self, func):
+        self.ktransfom.set_kboundary_func(func)

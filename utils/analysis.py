@@ -41,7 +41,23 @@ def transmission_vs_NA(fom, name = 'forward_0', figsize = None, dpi = None, use_
     plt.savefig('transmissionvsNA.png')
     plt.close()
 
-
+def plot_elliptical_surface(x, y, rx, ry, phi, constrained = None, figsize = None, dpi = None):
+    '''Plots geometry of given paramter set. Optionally colors in constraints'''
+    maxr = max(np.amax(rx), np.amax(ry))
+    fig = plt.figure(figsize = figsize, dpi = dpi)
+    ax = fig.add_subplot(1, 1, 1)
+    for i, xval in enumerate(x):
+        color = 'black'
+        if constrained is not None and i in constrained:
+            color = 'red'
+        ellipse = patches.Ellipse((xval, y[i]), 2*rx[i], 2*ry[i], angle = phi[i], facecolor=color)
+        ax.add_patch(ellipse)
+    ax.set_title('Geometry')
+    ax.set_xlim(min(x) - maxr, max(x) + maxr)
+    ax.set_ylim(min(y) - maxr, max(y) + maxr)
+    ax.set_xlabel('x (um)')
+    ax.set_ylabel('y (um)')
+    return fig
 
 def plot_geom_hist(params_hist, geometry, show_constraints = False, constraints = None, figsize = None, dpi = None):
     '''Creates set of geometry plots at each iteration'''
@@ -63,7 +79,7 @@ def plot_geom_hist(params_hist, geometry, show_constraints = False, constraints 
         else:
             filename = './geoms_const/geom_' + str(i) + '.png'
             cons = constraints
-        fig = Analysis.plot_elliptical_surface(x*1e6, y*1e6, rx*1e6, ry*1e6, phi, constrained = cons, figsize = figsize, dpi = dpi)
+        fig = plot_elliptical_surface(x*1e6, y*1e6, rx*1e6, ry*1e6, phi, constrained = cons, figsize = figsize, dpi = dpi)
         plt.title('Iteration ' + str(i))
         plt.savefig(filename)
         plt.close(fig)
@@ -155,24 +171,6 @@ def clear_savedata(use_var_fdtd=False):
     sim.load('adjoint_0')
     sim.remove_data_and_save()
 
-@staticmethod
-def plot_elliptical_surface(x, y, rx, ry, phi, constrained = None, figsize = None, dpi = None):
-    '''Plots geometry of given paramter set. Optionally colors in constraints'''
-    maxr = max(np.amax(rx), np.amax(ry))
-    fig = plt.figure(figsize = figsize, dpi = dpi)
-    ax = fig.add_subplot(1, 1, 1)
-    for i, xval in enumerate(x):
-        color = 'black'
-        if constrained is not None and i in constrained:
-            color = 'red'
-        ellipse = patches.Ellipse((xval, y[i]), 2*rx[i], 2*ry[i], angle = phi[i], facecolor=color)
-        ax.add_patch(ellipse)
-    ax.set_title('Geometry')
-    ax.set_xlim(min(x) - maxr, max(x) + maxr)
-    ax.set_ylim(min(y) - maxr, max(y) + maxr)
-    ax.set_xlabel('x (um)')
-    ax.set_ylabel('y (um)')
-    return fig
 
 def get_field_from_monitor(monitor_name, use_var_fdtd = False):
     '''Gets field from given analysis monitor'''
@@ -212,15 +210,15 @@ def plot_2D_field_from_monitor(monitor_name, wavelengths, cmap, norm_axis = 'z',
         fig = plt.figure()
         ax = fig.add_subplot(1,1,1)
         if norm_axis == 'x':
-            Analysis.plot_2D_field(ax, fields.E[0,:,:,indx,:], fields.y, fields.z, cmap)
+            plot_2D_field(ax, fields.E[0,:,:,indx,:], fields.y, fields.z, cmap)
             ax.set_xlabel('y (um)')
             ax.set_ylabel('z (um)')
         if norm_axis == 'y':
-            Analysis.plot_2D_field(ax, fields.E[:,0,:,indx,:], fields.x, fields.z, cmap)
+            plot_2D_field(ax, fields.E[:,0,:,indx,:], fields.x, fields.z, cmap)
             ax.set_xlabel('x (um)')
             ax.set_ylabel('z (um)')
         if norm_axis == 'z':
-            Analysis.plot_2D_field(ax, fields.E[:,:,0,indx,:], fields.x, fields.y, cmap)
+            plot_2D_field(ax, fields.E[:,:,0,indx,:], fields.x, fields.y, cmap)
             ax.set_xlabel('x (um)')
             ax.set_ylabel('y (um)')
         ax.set_title('|E|^2 at wl of {:.0f} nm'.format(wl*1e9))

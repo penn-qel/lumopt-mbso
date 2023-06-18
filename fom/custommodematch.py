@@ -217,6 +217,7 @@ class CustomModeMatch(object):
             wavelengths = self.wavelengths
         else:
             wavelengths = np.array([self.wavelengths[int(self.wavelengths.size/2)]])
+            eps = np.array([eps[int(self.wavelengths.size/2)]])
 
         xv, yv, zv, wlv = np.meshgrid(xarray, yarray, zarray, wavelengths, indexing = 'ij')
 

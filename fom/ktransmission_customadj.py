@@ -40,6 +40,7 @@ class KTransmissionCustomAdj(CustomModeMatch):
         super().__init__(monitor_name, Emodefun, Hmodefun, material, **kwargs)
 
         self.ktransfom = KTransmissionFom(monitor_name, **kwargs)
+        self.do_cmm_fom = True
 
     def initialize(self, sim):
         '''Initializes within optimization startup'''
@@ -55,8 +56,9 @@ class KTransmissionCustomAdj(CustomModeMatch):
         '''returns FOM and saves intermediate data'''
 
         #Runs Custom Mode Match FOM so that certain scaling factors are calculated/saved
-        cmmfom = super().get_fom(sim)
-        print("Mode overlap FOM: {}".format(cmmfom))
+        if self.do_cmm_fom:
+            cmmfom = super().get_fom(sim)
+            print("Mode overlap FOM: {}".format(cmmfom))
 
         #Returns KTransmissionFOM
         return self.ktransfom.get_fom(sim)
@@ -68,3 +70,4 @@ class KTransmissionCustomAdj(CustomModeMatch):
     def enter_analysis(self):
         '''Sets flag to save computation time when repeatedly calculating ift in post-analysis'''
         self.ktransfom.enter_analysis()
+        self.do_cmm_fom = False

@@ -33,14 +33,12 @@ class KTransmissionFom(TransmissionFom):
     :kwarg target_fom:      A target value for the FOM for printing/plotting distance of current design from target. Default 0
     :kwarg use_maxmin:      Boolean that triggers FOM/gradient calculations based on the worst-performing frequency, rather than average. Default False
     :kwarg prop_dist:       Positive distance to manually propagate fields from monitor to actual FOM plane. Default 0
-    :param boundary_func:       function defining boundary function for determining space to integrate over
-    :param NA:                  Numerical aperture of target FOM. Used to auto-create a boundary function for this case
     """
 
     def __init__(self, monitor_name, **kwargs):
         '''Initialization. See class docstring for list of kwargs'''
 
-        super().__init__(monitor_name, kwargs)
+        super().__init__(monitor_name, **kwargs)
 
         NA = kwargs.get("NA", 1.0)
         self.NA = float(NA)

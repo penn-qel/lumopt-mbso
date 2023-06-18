@@ -26,19 +26,32 @@ class CustomModeMatch(object):
         Parameters
         ----------
         :param monitor_name:   name of the field monitor that records the fields to be used in the mode overlap calculation.
-        :param Emodefun:       Function of x,y,z,wl that returns a (3,1) vector describing the E field mode
-        :param Hmodefun:       Function of x,y,z,wl that returns a (3,1) vector describing the H field mode
-        :param material:       Material that FOM is measured at
-        :param direction:      direction of propagation ('Forward' or 'Backward') of the mode injected by the source.
-        :param multi_freq_src: bool flag to enable / disable a multi-frequency mode calculation and injection for the adjoint source.
-        :param target_T_fwd:   function describing the target T_forward vs wavelength (see documentation for mode expansion monitors).
-        :param norm_p:         exponent of the p-norm used to generate the figure of merit; use to generate the FOM.
-        :param target_fom:     A target value for the figure of merit. This allows to print/plot the distance of the current
-                                   design from a target value
-        :param use_maxmin:     Optimize by maximizing min(F(w))
+        :param Emodefun:       Function of x,y,z,wl (N,) arrays that returns a (N,3) vector describing the E field mode
+        :param Hmodefun:       Function of x,y,z,wl (N,) arrays that returns a (N,3) vector describing the H field mode
+        :param material:       Material that FOM is measured at as Material object or single epsilon
+
+        Optional kwargs
+        -----------
+        :kwarg direction:      direction of propagation ('Forward' or 'Backward') of the mode injected by the source. Default 'Forward'
+        :kwarg multi_freq_src: bool flag to enable / disable a multi-frequency mode calculation and injection for the adjoint source. Default False.
+        :kwarg target_T_fwd:   function describing the target T_forward vs wavelength. Default lambda wl: np.ones(wl.size)
+        :kwarg norm_p:         exponent of the p-norm used to generate the figure of merit; use to generate the FOM. Default 1
+        :kwarg target_fom:     A target value for the figure of merit. Default 0
+        :kwarg target_T_fwd_weights:    Takes in array of wavelength and returns weights for FOM integral. Default lambda wl: np.ones(wl.size)
+        :kwarg use_maxmin:     Boolean to ptimize by maximizing min(F(w)). Default False
     """
 
-    def __init__(self, monitor_name, direction, Emodefun, Hmodefun, material, multi_freq_src = False, target_T_fwd = lambda wl: np.ones(wl.size), norm_p = 1, target_fom = 0, target_T_fwd_weights = lambda wl: np.ones(wl.size), use_maxmin = False):
+    def __init__(self, monitor_name, Emodefun, Hmodefun, material, **kwargs):  
+        #Unpack kwargs
+        direction = kwargs.get('direction', 'Forward')
+        multi_freq_src = kwargs.get('multi_freq_src', False)
+        target_T_fwd = kwargs.get("target_T_fwd", lambda wl: np.ones(wl.size))
+        norm_p = kwargs.get("norm_p", 1)
+        target_fom = kwargs.get("target_fom", 0)
+        target_T_fwd_weights = kwargs.get("target_T_fwd_weights", lambda wl: np.ones(wl.size))
+        use_maxmin = kwargs.get("use_maxmin", False)
+
+
         self.monitor_name = str(monitor_name)
         if not self.monitor_name:
             raise UserWarning('empty monitor name.')

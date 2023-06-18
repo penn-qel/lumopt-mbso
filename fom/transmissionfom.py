@@ -26,19 +26,34 @@ class TransmissionFom(object):
     Parameters
     -----------
     :param monitor_name:    name of the monitor that records the fields to calculate the FOM
-    :param direction:       direction of propagation ('Forward' or 'Backward') of the source mode
-    :param multi_freq_src:  bool flag to enable / disable multi-frequency source calculation for adjoint
-    :param target_T_fwd:    function describing the target T_forward vs wavelength
-    :param boundary_func:   function defining boundary for integral. Returns 1 if within region, 0 if outside
-    :param norm_p:          exponent of the p-norm used to generate the FOM
-    :param target_fom:      A target value for the FOM for printing/plotting distance of current design from target
-    :param use_maxmin:      Boolean that triggers FOM/gradient calculations based on the worst-performing frequency, rather than average
-    :param prop_dist:       Positive distance to manually propagate fields from monitor to actual FOM plane
+
+    Optional kwargs
+    -----------
+    :kwarg direction:       direction of propagation ('Forward' or 'Backward') of the source mode. Default 'Forward'
+    :kwarg multi_freq_src:  bool flag to enable / disable multi-frequency source calculation for adjoint. Default False
+    :kwarg target_T_fwd:    function describing the target T_forward vs wavelength. Default lambda wl: np.ones(wl.size)
+    :kwarg target_T_fwd_weights:    Takes in array of wavelength and returns weights for FOM integral. Default lambda wl: np.ones(wl.size)
+    :kwarg boundary_func:   function of x,y,z arrays defining boundary for integral. Returns 1 if within region, 0 if outside. Default lambda x, y, z: np.ones(x.size)
+    :kwarg norm_p:          exponent of the p-norm used to generate the FOM. Default 1
+    :kwarg target_fom:      A target value for the FOM for printing/plotting distance of current design from target. Default 0
+    :kwarg use_maxmin:      Boolean that triggers FOM/gradient calculations based on the worst-performing frequency, rather than average. Default False
+    :kwarg prop_dist:       Positive distance to manually propagate fields from monitor to actual FOM plane. Default 0
     """
 
-    def __init__(self, monitor_name, direction = 'Forward', boundary_func = lambda x, y, z: np.ones(x.size),
-                multi_freq_src = False, target_T_fwd = lambda wl: np.ones(wl.size), target_T_fwd_weights = lambda wl: np.ones(wl.size), 
-                norm_p = 1, target_fom = 0, prop_distance = 0, use_maxmin = False, scaling = 1.0e-7):
+    def __init__(self, monitor_name, **kwargs):
+        '''Initialization. See class docstring for list of kwargs'''
+        #Unpack kwargs
+        direction = kwargs.get('direction', 'Forward')
+        boundary_func = kwargs.get('boundary_func', lambda x, y, z: np.ones(x.size))
+        multi_freq_src = kwargs.get("multi_freq_src", False)
+        target_T_fwd = kwargs.get("target_T_fwd", lambda wl: np.ones(wl.size))
+        norm_p = kwargs.get("norm_p", 1)
+        target_fom = kwargs.get("target_fom", 0)
+        target_T_fwd_weights = kwargs.get("target_T_fwd_weights", lambda wl: np.ones(wl.size))
+        prop_distance = kwargs.get("prop_distance", 0)
+        use_maxmin = kwargs.get("use_maxmin", False)
+        scaling = kwargs.get("scaling", 1.0e-7)
+
         self.monitor_name = str(monitor_name)
         if not self.monitor_name:
             raise UserWarning('empty monitor name')

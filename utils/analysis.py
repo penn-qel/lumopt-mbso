@@ -157,10 +157,11 @@ def print_constraint_report(params_hist, constraints, tol = 1e-9):
     print("There are {} violated constraints".format(violations))
     print("There are {} constraints within tolerance of {} nm".format(tolerance, tol*1e9))
 
-def savehist(params_hist, grad_hist):
+def savehist(opt):
     '''Saves parameter hist and gradient hist to np files'''
-    np.savez('params_hist', params_hist)
-    np.savez('grad_hist', grad_hist)
+    np.savez('params_hist', opt.params_hist)
+    np.savez('grad_hist', opt.grad_hist)
+    np.savez('fom_hist', opt.fom_hist)
 
 def clear_savedata(use_var_fdtd=False):
     '''Clears simulation data from hard drive. Should be run when analysis is complete'''

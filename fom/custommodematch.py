@@ -171,8 +171,8 @@ class CustomModeMatch(object):
         return geometric_props, normal
 
     def get_fom(self, sim):
-        self.fom_fields = self.get_fom_fields(sim)
-        trans_coeff = CustomModeMatch.get_transmission_coefficient(self.fom_fields, self.get_monitor_normal(sim), self.Emodefun, self.Hmodefun)
+        fom_fields = self.get_fom_fields(sim)
+        trans_coeff = CustomModeMatch.get_transmission_coefficient(fom_fields, self.get_monitor_normal(sim), self.Emodefun, self.Hmodefun)
         source_power = CustomModeMatch.get_source_power(sim, self.wavelengths)
         #FOM = 1/8 * 1/sourcepower * 1/int(Re(Em x Hm*)dS) * |int(E x Hm* dS + Em* x H dS)|^2
         self.T_fwd_vs_wavelength = np.real(trans_coeff * trans_coeff.conj() / (8 * source_power * self.modepower))

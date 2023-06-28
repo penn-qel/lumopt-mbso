@@ -16,7 +16,9 @@ import matplotlib.patches as patches
 from lumopt.geometries.geometry import Geometry
 from lumopt.utilities.materials import Material
 from lumopt.utilities.wavelengths import Wavelengths
+from lumopt.utilities.gradients import GradientFields
 from utils.interpolate_fields import interpolate_fields
+from utils.get_fields_from_cad import get_fields_from_cad
 
 class MovingMetasurface3D(Geometry):
     """
@@ -204,6 +206,38 @@ class MovingMetasurface3D(Geometry):
         else:
             total_deriv = np.concatenate((deriv_x, deriv_y, deriv_rx, deriv_ry))
         return total_deriv
+
+    def calculate_gradients_on_cad(self, sim, forward_fields, adjoint_fields, wl_scaling_factor):
+        '''Semi hack to reduce memory usage of gradient calculation. Actual calculation of gradients still done in Python
+        but only one instance of field data exists at a time'''
+
+        #Store scaling weights in CAD
+        lumapi.putMatrix(sim.fdtd.handle, "wl_scaling_factor", wl_scaling_factor)
+
+        #Pull and delete fields from CAD
+        grad = self.calculate_gradients(GradientFields(get_fields_from_cad(sim.fdtd,
+                            field_result_name = forward_fields,
+                            get_eps = True,
+                            get_D = True,
+                            get_H = False,
+                            nointerpolation = True,
+                            clear_result = True), 
+                            get_fields_from_cad(sim.fdtd,
+                            field_result_name = adjoint_fields,
+                            get_eps = True,
+                            get_D = True,
+                            get_H = False,
+                            nointerpolation = True,
+                            clear_result = True).scale(3, wl_scaling_factor)))
+
+        #Scale by wavelength and reshape for compatability with gradient wavelength integral on cad expectations
+        total_deriv = np.reshape(grad, (grad.shape[0], 1, grad.shape[1]))
+
+        #Stores result back in CAD
+        lumapi.putMatrix(sim.fdtd.handle, 'total_deriv', total_deriv)
+
+        #Return name of result in CAD
+        return 'total_deriv'
 
     def get_current_params(self):
         '''Returns list of params as single array'''

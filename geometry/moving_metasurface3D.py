@@ -215,20 +215,23 @@ class MovingMetasurface3D(Geometry):
         lumapi.putMatrix(sim.fdtd.handle, "wl_scaling_factor", wl_scaling_factor)
 
         #Pull and delete fields from CAD
-        grad = self.calculate_gradients(GradientFields(get_fields_from_cad(sim.fdtd,
+        forward_fields = get_fields_from_cad(sim.fdtd,
                             field_result_name = forward_fields,
                             get_eps = True,
                             get_D = True,
                             get_H = False,
                             nointerpolation = True,
-                            clear_result = True), 
-                            get_fields_from_cad(sim.fdtd,
+                            clear_result = True)
+        adjoint_fields = get_fields_from_cad(sim.fdtd,
                             field_result_name = adjoint_fields,
                             get_eps = True,
                             get_D = True,
                             get_H = False,
                             nointerpolation = True,
-                            clear_result = True).scale(3, wl_scaling_factor)))
+                            clear_result = True)
+        
+        adjoint_fields.scale(3, wl_scaling_factor)
+        grad = self.calculate_gradients(GradientFields(forward_fields, adjoint_fields))
 
         #Scale by wavelength and reshape for compatability with gradient wavelength integral on cad expectations
         total_deriv = np.reshape(grad, (grad.shape[0], 1, grad.shape[1]))

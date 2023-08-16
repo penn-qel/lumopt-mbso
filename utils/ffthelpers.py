@@ -100,22 +100,28 @@ def fft2D(A, x, y):
 
     return Ak, vx, vy 
 
-def getkfields(fields):
-    '''Transforms fields into k-space'''
+def getkfields2(A, x, y, wl):
+    '''Transforms field into k-space from field and coordinates'''
 
-    assert(fields.z.size == 1)
     #Get zero-buffered fields
-    E, bufx, bufy = pad_field(fields.E, fields.x, fields.y, fields.wl)
-    H, bufy, bufy = pad_field(fields.H, fields.x, fields.y, fields.wl)
-    
+    E, bufx, bufy = pad_field(A, x, y, wl)
+
     #Perform fft
-    Ek, vx, vy = fft2D(E, fields.x, fields.y)
-    Hk, vx, vy = fft2D(H, fields.x, fields.y)
+    Ek, vx, vy = fft2D(E, x, y)
 
     #Gets grid of relevant points. Normalizes spatial frequencies by multiplying by wavelength and gets boundary weights
-    vxv, vyv, wlv = np.meshgrid(vx, vy, fields.wl, indexing = 'ij')
+    vxv, vyv, wlv = np.meshgrid(vx, vy, wl, indexing='ij')
     kx = vxv * wlv
     ky = vyv * wlv
+
+    return Ek, kx, ky, bufx, bufy
+
+def getkfields(fields):
+    '''Transforms fields into k-space from fields object'''
+
+    assert(fields.z.size == 1)
+    Ek, kx, ky, bufx, bufy = getkfields2(fields.E, fields.x, fields.y, fields.wl)
+    Hk, kx, ky, bufx, bufy = getkfields2(fields.H, fields.x, fields.y, fields.wl)
 
     return Ek, Hk, kx, ky, bufx, bufy
 

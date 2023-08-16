@@ -8,10 +8,8 @@
 import numpy as np
 import scipy.constants
 import math
-try:
-    import scipy.fft as fft
-except ModuleNotFoundError:
-    import scipy.fftpack as fft
+import scipy.fft as fft
+import os
 
 def create_NA_boundary(NA):
     '''Returns function corresponding to filter for a boundary of a given NA'''
@@ -55,9 +53,8 @@ def filterfields(fields, kboundary_func, Ek, Hk, kx, ky):
 
 def ifftcrop(fields, Ek, Hk, bufx, bufy):
     '''Performs inverse Fourier transform and crops to original spatial size'''
-
-    Einverse = fft.ifftn(Ek, axes = (0,1))
-    Hinverse = fft.ifftn(Hk, axes = (0,1))
+    Einverse = fft.ifftn(Ek, axes = (0,1), workers=os.cpu_count())
+    Hinverse = fft.ifftn(Hk, axes = (0,1), workers=os.cpu_count())
 
     return Einverse[bufx:bufx+fields.x.size,bufy:bufy+fields.y.size,:,:,:], Hinverse[bufx:bufx+fields.x.size,bufy:bufy+fields.y.size,:,:,:]
 
@@ -92,7 +89,7 @@ def fft2D(A, x, y):
     ny = A.shape[1]
 
     #Performs fft
-    Ak = fft.fftn(A, axes=(0,1))
+    Ak = fft.fftn(A, axes=(0,1), workers=os.cpu_count())
 
     #Gets spatial frequencies
     vx = fft.fftfreq(nx, dx)

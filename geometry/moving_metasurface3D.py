@@ -105,21 +105,31 @@ class MovingMetasurface3D(Geometry):
             phi = self.phi
         else:
             offset_x, offset_y, rx, ry, phi = self.get_from_params(params)
-        scipy.io.savemat('params.mat', mdict={'x': offset_x + self.init_x, 'y': offset_y + self.init_y, 'rx': rx, 'ry': ry, 'phi': phi, 'height': self.h, 'z': self.z})
         sim.fdtd.switchtolayout()
 
         if not only_update:
             sim.fdtd.addstructuregroup()
             sim.fdtd.set('name', groupname)
-            self.counter = 0
-            sim.fdtd.adduserprop('counter', 0, 0)
             sim.fdtd.set('x', 0)
             sim.fdtd.set('y', 0)
             sim.fdtd.set('z', self.z)
-        self.counter += 1
+
+            #Set parameters as user props
+            sim.fdtd.adduserprop('posx', 6, offset_x + self.init_x)
+            sim.fdtd.adduserprop('posy', 6, offset_y + self.init_y)
+            sim.fdtd.adduserprop('rx', 6, rx)
+            sim.fdtd.adduserprop('ry', 6, ry)
+            sim.fdtd.adduserprop('phi', 6, phi)
+            sim.fdtd.adduserprop('height', 0, self.h)
+            sim.fdtd.adduserprop('z0', 0, self.z)
+
         sim.fdtd.select(groupname)
+        sim.fdtd.set('posx', offset_x + self.init_x)
+        sim.fdtd.set('posy', offset_y + self.init_y)
+        sim.fdtd.set('rx', rx)
+        sim.fdtd.set('ry', ry)
+        sim.fdtd.set('phi', phi)
         self.create_script(sim, groupname, only_update)
-        sim.fdtd.set('counter', self.counter)
 
     def update_geometry(self, params, sim = None):
         '''Updates internal values of parameters according to input'''
@@ -296,17 +306,16 @@ class MovingMetasurface3D(Geometry):
     def create_script(self, sim, groupname = 'Pillars', only_update = False):
         '''Creates Lumerical script for structure group'''
         struct_script = ('deleteall;\n'
-                'data = matlabload("params.mat");\n'
-                'for(i=1:length(x)) {\n'
+                'for(i=1:length(posx)) {\n'
                     'addcircle;\n'
                     'set("name", "pillar_"+num2str(i));\n'
                     'set("make ellipsoid", true);\n'
                     'set("first axis", "z");\n'
                     'set("rotation 1", phi(i));\n'
-                    'set("x", x(i));\n'
-                    'set("y", y(i));\n'
-                    'set("z min", z);\n'
-                    'set("z max", z+height);\n'
+                    'set("x", posx(i));\n'
+                    'set("y", posy(i));\n'
+                    'set("z min", z0);\n'
+                    'set("z max", z0+height);\n'
                     'set("radius", rx(i));\n'
                     'set("radius 2", ry(i));\n')
 

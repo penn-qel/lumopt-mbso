@@ -253,14 +253,19 @@ class MovingMetasurface3D(Geometry):
         #Return name of result in CAD
         return 'total_deriv'
 
-    def get_current_params(self):
-        '''Returns list of params as single array'''
+    def get_scaled_params(offset_x, offset_y, rx, ry, phi = None):
+        '''Retrieves correctly scaled individual parameter values'''
         s1 = self.scaling_factor
         s2 = self.phi_scaling
         if self.pillars_rotate:
-            return np.concatenate((self.offset_x*s1, self.offset_y*s1, self.rx*s1, self.ry*s1, self.phi*s2))
+            return np.concatenate((offset_x*s1, offset_y*s1, rx*s1, ry*s1, phi*s2))
         else:
-            return np.concatenate((self.offset_x*s1, self.offset_y*s1, self.rx*s1, self.ry*s1))
+            return np.concatenate((offset_x*s1, offset_y*s1, rx*s1, ry*s1))
+
+
+    def get_current_params(self):
+        '''Returns list of params as single array'''
+        return get_scaled_params(self.offset_x, self.offset_y, self.rx, self.ry, self.phi)
 
     def get_from_params(self, params):
         '''Retrieves correctly scaled individual parameter values from list of params'''

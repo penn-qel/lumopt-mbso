@@ -380,16 +380,16 @@ class MovingMetasurface3D(Geometry):
 
         #Retrieve parameters
         sim.fdtd.select('Pillars')
-        params['posx'] = sim.fdtd.get('posx')
-        params['posy'] = sim.fdtd.get('posy')
-        params['rx'] = sim.fdtd.get('rx')
-        params['ry'] = sim.fdtd.get('ry')
-        params['phi'] = sim.fdtd.get('phi')
+        params['posx'] = sim.fdtd.get('posx').flatten()
+        params['posy'] = sim.fdtd.get('posy').flatten()
+        params['rx'] = sim.fdtd.get('rx').flatten()
+        params['ry'] = sim.fdtd.get('ry').flatten()
+        params['phi'] = sim.fdtd.get('phi').flatten()
         params['z'] = sim.fdtd.get('z0')
         params['h'] = sim.fdtd.get('height')
 
         if get_wavelengths:
-            f = sim.fdtd.getglobalmonitor('custom frequency samples')
+            f = sim.fdtd.getglobalmonitor('custom frequency samples').flatten()
             params['wl'] = scipy.constants.speed_of_light/f
 
         sim.fdtd.close()

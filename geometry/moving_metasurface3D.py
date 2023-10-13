@@ -362,7 +362,7 @@ class MovingMetasurface3D(Geometry):
             print(phi) if scaled else print(self.phi)
 
     @staticmethod
-    def get_params_from_existing_simulation(filename):
+    def get_params_from_existing_simulation(filename, get_wavelengths = False):
         '''Opens an existing .fsp file that was used in an optimization and retrieves geometry 
         Returns parameters as a dict'''
 
@@ -383,19 +383,26 @@ class MovingMetasurface3D(Geometry):
         params['z'] = sim.fdtd.get('z0')
         params['h'] = sim.fdtd.get('height')
 
+        if get_wavelengths:
+            f = sim.fdtd.getglobalmonitor('custom frequency samples')
+            params['wl'] = scipy.constants.speed_of_light/f
+
         sim.fdtd.close()
 
         return params
 
     @staticmethod
-    def create_from_existing_simulation(filename, return_sim = False):
+    def create_from_existing_simulation(filename, get_wavelengths = False):
         '''Creates a geometry object based on an existing structure saved in a .fsp sim file.
         For use with analysis only, as will put dummy parameters for inputs related to optimization'''
 
-        params = MovingMetasurface3D.get_params_from_existing_simulation(filename)
+        params = MovingMetasurface3D.get_params_from_existing_simulation(filename, get_wavelengths)
 
         geom = MovingMetasurface3D(posx = params['posx'], posy = params['posy'], rx = params['rx'], ry = params['ry'], 
             min_feature_size = 0, z = params['z'], h = params['h'], eps_in = 0, eps_out = 2.4**2, 
             phi = params['phi'], scaling_factor = 1, phi_scaling = 1, limit_nearest_neighbor_cons = False)
 
-        return geom
+        if get_wavelengths:
+            return geom, params['wl']
+        else:
+            return geom

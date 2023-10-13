@@ -17,6 +17,7 @@ from lumopt.geometries.geometry import Geometry
 from lumopt.utilities.materials import Material
 from lumopt.utilities.wavelengths import Wavelengths
 from lumopt.utilities.gradients import GradientFields
+from lumopt.utilities.simulation import Simulation
 from utils.interpolate_fields import interpolate_fields
 from utils.get_fields_from_cad import get_fields_from_cad
 
@@ -359,3 +360,42 @@ class MovingMetasurface3D(Geometry):
         if self.pillars_rotate:
             print('phi:')
             print(phi) if scaled else print(self.phi)
+
+    @staticmethod
+    def get_params_from_existing_simulation(filename):
+        '''Opens an existing .fsp file that was used in an optimization and retrieves geometry 
+        Returns parameters as a dict'''
+
+        #Open simulation file
+        sim = Simulation('./', use_var_fdtd = False, hide_fdtd_cad = True)
+        sim.load(filename)
+
+        #Create dict to store parameters
+        params = dict()
+
+        #Retrieve parameters
+        sim.fdtd.select('Pillars')
+        params['posx'] = sim.fdtd.get('posx')
+        params['posy'] = sim.fdtd.get('posy')
+        params['rx'] = sim.fdtd.get('rx')
+        params['ry'] = sim.fdtd.get('ry')
+        params['phi'] = sim.fdtd.get('phi')
+        params['z'] = sim.fdtd.get('z0')
+        params['h'] = sim.fdtd.get('height')
+
+        sim.fdtd.close()
+
+        return params
+
+    @staticmethod
+    def create_from_existing_simulation(filename, return_sim = False):
+        '''Creates a geometry object based on an existing structure saved in a .fsp sim file.
+        For use with analysis only, as will put dummy parameters for inputs related to optimization'''
+
+        params = MovingMetasurface3D.get_params_from_existing_simulation(filename)
+
+        geom = MovingMetasurface3D(posx = params['posx'], posy = params['posy'], rx = params['rx'], ry = params['ry'], 
+            min_feature_size = 0, z = params['z'], h = params['h'], eps_in = 0, eps_out = 2.4**2, 
+            phi = params['phi'], scaling_factor = 1, phi_scaling = 1, limit_nearest_neighbor_cons = False)
+
+        return geom

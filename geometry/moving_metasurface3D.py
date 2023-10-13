@@ -65,7 +65,7 @@ class MovingMetasurface3D(Geometry):
         if phi is None:
             self.phi = np.zeros(self.rx.size).flatten()
         else:
-            self.phi = phi
+            self.phi = phi.flatten()
 
         if self.h <= 0:
             raise UserWarning("pillar height must be positive.")
@@ -253,7 +253,7 @@ class MovingMetasurface3D(Geometry):
         #Return name of result in CAD
         return 'total_deriv'
 
-    def get_scaled_params(offset_x, offset_y, rx, ry, phi = None):
+    def get_scaled_params(self, offset_x, offset_y, rx, ry, phi = None):
         '''Retrieves correctly scaled individual parameter values'''
         s1 = self.scaling_factor
         s2 = self.phi_scaling
@@ -265,7 +265,7 @@ class MovingMetasurface3D(Geometry):
 
     def get_current_params(self):
         '''Returns list of params as single array'''
-        return get_scaled_params(self.offset_x, self.offset_y, self.rx, self.ry, self.phi)
+        return self.get_scaled_params(self.offset_x, self.offset_y, self.rx, self.ry, self.phi)
 
     def get_from_params(self, params):
         '''Retrieves correctly scaled individual parameter values from list of params'''

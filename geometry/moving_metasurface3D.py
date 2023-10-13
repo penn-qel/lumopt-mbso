@@ -22,23 +22,50 @@ from utils.interpolate_fields import interpolate_fields
 from utils.get_fields_from_cad import get_fields_from_cad
 
 class MovingMetasurface3D(Geometry):
-    """
+    """Defines object consisting of array of elliptical pillars, where axes lengths, positions, and
+    rotations are all free optimization variables.
+
+    Parameters
+    ----------------
         :param posx:            Array of shape (N,) defining initial x-coordinates of pillar centers
         :param posy:            Array of shape (N,) defining initial y-coordinates of pillar centers
         :param rx:              Array of shape (N,) defining initial x-axis radius of each pillar
         :param ry:              Array of shape (N,) defining initial y-axis radius of each pillar
-        :param phi:             Array of shape (N,) defining intial phi-rotation of each pillar in degrees
-        :param pillars_rotate:  Boolean determining if pillar rotation is an optimization variable
+        :param min_feature_size:    Scalar that determines minimum pillar diameter and spacing.
         :param z:               z-position of bottom of metasurface
         :param h:               height of metasurface pillars
-        :param height_precision:Number of points along height of each pillar used to calculate gradient
-        :param angle_precision: Number of points along circumference of pillar used to calculate gradient
         :param eps_in:          Permittivity of pillars
         :param eps_out:         Permittivity of surrounding material
-        :param dx:              step size for computing the figure of merit gradient using permittivity perturbations.
+
+    Optional kwargs
+    ---------------
+        :kwarg phi:             Array of shape (N,) defining intial phi-rotation of each pillar in degrees. Defaults to all 0
+        :kwarg height_precision:Number of points along height of each pillar used to calculate gradient. Default 10
+        :kwarg angle_precision: Number of points along circumference of pillar used to calculate gradient. Default 20
+        :kwarg pillars_rotate:  Boolean determining if pillar rotation is an optimization variable. Default True
+        :kwarg scaling_factor:  Factor to scale all position and radius parameters. Default 1
+        :kwarg phi_scaling:     Scaling factor to scale rotation parameters. Default 1/180
+        :kwarg limit_nearest_neighbor_cons: Flag to limit constraints to nearest neighbors in initial grid. Default True
+        :kwarg make_meshgrid:   Flag to automatically make meshgrid of input x and y points. Default False.
+        :kwarg dx:              Step size for computing FOM gradient using permittivity perturbations. Default 10e-9
+        :kwarg params_debug:    Flag for a debug mode to print parameters on updates. Default False.
     """
 
-    def __init__(self, posx, posy, rx, ry, min_feature_size, z, h, eps_in, eps_out, phi = None, pillars_rotate = True, height_precision = 10, angle_precision = 20, scaling_factor = 1, phi_scaling = 1/180, limit_nearest_neighbor_cons = True, make_meshgrid = False, dx = 10e-9, params_debug = False):
+    def __init__(self, posx, posy, rx, ry, min_feature_size, z, h, eps_in, eps_out, **kwargs):
+        
+        #Unpack kwargs
+        phi = kwargs.get('phi', None)
+        pillars_rotate = kwargs.get('pillars_rotate', True)
+        height_precision = kwargs.get('height_precision', 10)
+        angle_precision = kwargs.get('angle_precision', 20)
+        scaling_factor = kwargs.get('scaling_factor', 1)
+        phi_scaling = kwargs.get('phi_scaling', 1/180)
+        limit_nearest_neighbor_cons = kwargs.get('limit_nearest_neighbor_cons', True)
+        make_meshgrid = kwargs.get('make_meshgrid', False)
+        dx = kwargs.get('dx', 10e-9)
+        params_debug = kwargs.get('params_debug', False)
+
+        
         self.init_x = posx.flatten()
         self.init_y = posy.flatten()
         self.rx = rx.flatten()

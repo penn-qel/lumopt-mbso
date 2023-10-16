@@ -86,16 +86,16 @@ class MovingMetasurface3DSidewall(MovingMetasurface3D):
         offset_x, offset_y, rx, ry, phi = self.get_from_params(params)
         ravg = (rx + ry)/2
 
-        #Get list of z values that represent bottoms of each chunk
-        zvals = np.linspace(self.z, self.h, self.sidewall_points)
-        heights = np.diff(zvals)
+        #Get list of z values that represent tops of each chunk
+        zvals = np.linspace(self.z + self.h, self.z, self.sidewall_points)
+        heights = -1*np.diff(zvals)
 
         #Iterate over each chunk
         for i, h in enumerate(heights):
             #Bottom z
-            z0 = zvals[i]
+            z0 = zvals[i+1]
 
-            #Total distance from bottom
+            #Total distance from top
             dh = i*h
 
             #Radius scaling factor
@@ -106,9 +106,6 @@ class MovingMetasurface3DSidewall(MovingMetasurface3D):
 
             #Add layer to simulation
             self.add_geo_impl(sim, only_update, params, h, z0, groupname = 'Pillars' + str(i))
-
-
-
 
 
     def calculate_gradients(self, gradient_fields):

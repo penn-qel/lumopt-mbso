@@ -131,7 +131,7 @@ class MovingMetasurface3D(Geometry):
             sim.fdtd.set('name', groupname)
             sim.fdtd.set('x', 0)
             sim.fdtd.set('y', 0)
-            sim.fdtd.set('z', z)
+            sim.fdtd.set('z', 0)
 
             #Set parameters as user props
             sim.fdtd.adduserprop('posx', 6, offset_x + self.init_x)

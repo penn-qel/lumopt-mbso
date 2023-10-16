@@ -65,7 +65,7 @@ class MovingMetasurface3D(Geometry):
         dx = kwargs.get('dx', 10e-9)
         params_debug = kwargs.get('params_debug', False)
 
-        
+
         self.init_x = posx.flatten()
         self.init_y = posy.flatten()
         self.rx = rx.flatten()
@@ -121,26 +121,17 @@ class MovingMetasurface3D(Geometry):
                 else:
                     raise UserWarning("Must do built-in meshgrid or use a perfect square of pillars when constraining nearest neighbors only")
 
-    def add_geo(self, sim, params, only_update):
-        '''Adds the geometry to a Lumerical simulation'''
+    def add_geo_impl(self, sim, only_update, params, h, z, groupname = 'Pillars'):
+        '''Called by add_geo. Implements actual pushing of parameters to Lumerical'''
 
-        groupname = 'Pillars'
-        if params is None:
-            offset_x = self.offset_x
-            offset_y = self.offset_y
-            rx = self.rx
-            ry = self.ry
-            phi = self.phi
-        else:
-            offset_x, offset_y, rx, ry, phi = self.get_from_params(params)
-        sim.fdtd.switchtolayout()
+        offset_x, offset_y, rx, ry, phi = self.get_from_params(params)
 
         if not only_update:
             sim.fdtd.addstructuregroup()
             sim.fdtd.set('name', groupname)
             sim.fdtd.set('x', 0)
             sim.fdtd.set('y', 0)
-            sim.fdtd.set('z', self.z)
+            sim.fdtd.set('z', z)
 
             #Set parameters as user props
             sim.fdtd.adduserprop('posx', 6, offset_x + self.init_x)
@@ -148,8 +139,8 @@ class MovingMetasurface3D(Geometry):
             sim.fdtd.adduserprop('rx', 6, rx)
             sim.fdtd.adduserprop('ry', 6, ry)
             sim.fdtd.adduserprop('phi', 6, phi)
-            sim.fdtd.adduserprop('height', 0, self.h)
-            sim.fdtd.adduserprop('z0', 0, self.z)
+            sim.fdtd.adduserprop('height', 0, h)
+            sim.fdtd.adduserprop('z0', 0, z)
 
         sim.fdtd.select(groupname)
         sim.fdtd.set('posx', offset_x + self.init_x)
@@ -158,6 +149,16 @@ class MovingMetasurface3D(Geometry):
         sim.fdtd.set('ry', ry)
         sim.fdtd.set('phi', phi)
         self.create_script(sim, groupname, only_update)
+
+    def add_geo(self, sim, params, only_update):
+        '''Adds the geometry to a Lumerical simulation'''
+
+        if params is None:
+            #Uses interally saved parameters
+            params = self.get_current_params()
+        sim.fdtd.switchtolayout()
+
+        self.add_geo_impl(sim, only_update, params, self.h, self.z)
 
     def update_geometry(self, params, sim = None):
         '''Updates internal values of parameters according to input'''

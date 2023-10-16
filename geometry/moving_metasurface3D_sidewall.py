@@ -45,6 +45,7 @@ class MovingMetasurface3DSidewall(MovingMetasurface3D):
     -----------------
         :kwarg sidewall_angle:  Angle in degrees of sidewall etch. Default 90
         :kwarg sidwall_points:  Number of points used to generate sidewall. Subtract 1 to get number of layers. Default to height_precision
+        :kwarg kill_unphysical: Boolean flag to get rid of unphysical floating pillars. Default to True
 
     Inherited kwargs
     ---------------
@@ -67,6 +68,7 @@ class MovingMetasurface3DSidewall(MovingMetasurface3D):
         #Unpack kwargs
         self.sidewall_angle = kwargs.get('sidewall_angle', 90)
         sidewall_points = kwargs.get('sidewall_res', None)
+        self.kill_unphysical = kwargs.get('kill_unphysical', True)
 
         if sidewall_points is None:
             self.sidewall_points = self.height_precision
@@ -85,6 +87,14 @@ class MovingMetasurface3DSidewall(MovingMetasurface3D):
         #Get composite parameters
         offset_x, offset_y, rx, ry, phi = self.get_from_params(params)
         ravg = (rx + ry)/2
+
+        if self.kill_unphysical:
+            #Check minimum angles
+            thetamin = np.degrees(np.arctan2(self.h, ravg))
+
+            #Set pillar radius to 0 if etching would destroy it
+            rx = np.where(thetamin < self.sidewall_angle, rx, 0)
+            ry = np.where(thetamin < self.sidewall_angle, ry, 0)
 
         #Get list of z values that represent tops of each chunk
         zvals = np.linspace(self.z + self.h, self.z, self.sidewall_points)

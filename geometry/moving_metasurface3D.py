@@ -307,7 +307,7 @@ class MovingMetasurface3D(Geometry):
         return offset_x/s1, offset_y/s1, rx/s1, ry/s1, phi/s2
 
 
-    def plot(self, ax):
+    def plot(self, ax, constrained = None):
         '''Plots current geometry'''
         x = (self.offset_x + self.init_x)*1e6
         y = (self.offset_y + self.init_y)*1e6
@@ -316,7 +316,10 @@ class MovingMetasurface3D(Geometry):
         maxr = max(np.amax(rx), np.amax(ry))
         ax.clear()
         for i, xval in enumerate(x):
-            ellipse = patches.Ellipse((xval, y[i]), 2*rx[i], 2*ry[i], angle = self.phi[i], facecolor='black')
+            color = 'black'
+            if constrained is not None and i in constrained:
+                color = 'red'
+            ellipse = patches.Ellipse((xval, y[i]), 2*rx[i], 2*ry[i], angle = self.phi[i], facecolor=color)
             ax.add_patch(ellipse)
         ax.set_title('Geometry')
         ax.set_xlim(min(x) - maxr, max(x) + maxr)

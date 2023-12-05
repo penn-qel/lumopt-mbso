@@ -41,24 +41,6 @@ def transmission_vs_NA(fom, name = 'forward_0', figsize = None, dpi = None, use_
     plt.savefig('transmissionvsNA.png')
     plt.close()
 
-def plot_elliptical_surface(x, y, rx, ry, phi, constrained = None, figsize = None, dpi = None):
-    '''Plots geometry of given paramter set. Optionally colors in constraints'''
-    maxr = max(np.amax(rx), np.amax(ry))
-    fig = plt.figure(figsize = figsize, dpi = dpi)
-    ax = fig.add_subplot(1, 1, 1)
-    for i, xval in enumerate(x):
-        color = 'black'
-        if constrained is not None and i in constrained:
-            color = 'red'
-        ellipse = patches.Ellipse((xval, y[i]), 2*rx[i], 2*ry[i], angle = phi[i], facecolor=color)
-        ax.add_patch(ellipse)
-    ax.set_title('Geometry')
-    ax.set_xlim(min(x) - maxr, max(x) + maxr)
-    ax.set_ylim(min(y) - maxr, max(y) + maxr)
-    ax.set_xlabel('x (um)')
-    ax.set_ylabel('y (um)')
-    return fig
-
 def plot_geom_hist(params_hist, geometry, show_constraints = False, constraints = None, figsize = None, dpi = None):
     '''Creates set of geometry plots at each iteration'''
     if not show_constraints:
@@ -67,20 +49,17 @@ def plot_geom_hist(params_hist, geometry, show_constraints = False, constraints 
         os.mkdir('./geoms_const')
     #Iterate through param history and plot frames
     for i, params in enumerate(params_hist):
-        scaled_params = geometry.get_from_params(params)
-        x = scaled_params[0] + geometry.init_x
-        y = scaled_params[1] + geometry.init_y
-        rx = scaled_params[2]
-        ry = scaled_params[3]
-        phi = scaled_params[4]
+        geometry.update_geometry(params)
         if not show_constraints:
             filename = './geoms/geom_' + str(i) + '.png'
             cons = None
         else:
             filename = './geoms_const/geom_' + str(i) + '.png'
             cons = constraints
-        fig = plot_elliptical_surface(x*1e6, y*1e6, rx*1e6, ry*1e6, phi, constrained = cons, figsize = figsize, dpi = dpi)
-        plt.title('Iteration ' + str(i))
+        fig = plt.figure(figsize=figsize, dpi=dpi)
+        ax = fig.add_subplot(111)
+        geometry.plot(ax, constrained=cons)
+        ax.set_title('Iteration ' + str(i))
         plt.savefig(filename)
         plt.close(fig)
 

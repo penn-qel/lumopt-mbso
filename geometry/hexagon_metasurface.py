@@ -279,7 +279,7 @@ class HexagonMetasurface(Geometry):
         return offset_x/s, offset_y/s, r/s
 
 
-    def plot(self, ax):
+    def plot(self, ax, constrained = None):
         '''Plots current geometry'''
         x = (self.offset_x + self.init_x)*1e6
         y = (self.offset_y + self.init_y)*1e6
@@ -287,7 +287,10 @@ class HexagonMetasurface(Geometry):
         maxr = np.amax(r)
         ax.clear()
         for i, xval in enumerate(x):
-            hexagon = patches.RegularPolygon((xval, y[i]), 6, radius=r[i], orientation = np.pi/2, facecolor='black')
+            color = 'black'
+            if constrained is not None and i in constrained:
+                color = 'red'
+            hexagon = patches.RegularPolygon((xval, y[i]), 6, radius=r[i], orientation = np.pi/2, facecolor=color)
             ax.add_patch(hexagon)
         ax.set_title('Geometry')
         ax.set_xlim(min(x) - maxr, max(x) + maxr)

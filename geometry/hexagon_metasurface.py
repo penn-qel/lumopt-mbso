@@ -124,6 +124,12 @@ class HexagonMetasurface(Geometry):
             sim.fdtd.adduserprop('height', 0, h)
             sim.fdtd.adduserprop('z0', 0, z)
 
+        sim.fdtd.select(groupname)
+        sim.fdtd.set('posx', offset_x + self.init_x)
+        sim.fdtd.set('posy', offset_y + self.init_y)
+        sim.fdtd.set('r', r)
+        sim.fdtd.set('points', points)
+
         self.create_script(sim, groupname, only_update)
 
     def add_geo(self, sim, params, only_update):

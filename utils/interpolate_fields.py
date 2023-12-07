@@ -15,19 +15,19 @@ def interpolate_fields(x, y, z, fields):
     yd = (y - fields.y[yi-1])/(fields.y[yi] - fields.y[yi-1])
     zd = (z - fields.z[zi-1])/(fields.z[zi] - fields.z[zi-1])
 
-    E00 = fields.E[xi-1, yi-1, zi-1,:,:].squeeze()*(1 - xd) + fields.E[xi, yi-1, zi-1,:,:].squeeze()*xd
-    E01 = fields.E[xi-1, yi-1, zi,:,:].squeeze()*(1-xd) + fields.E[xi, yi-1, zi,:,:].squeeze()*xd
-    E10 = fields.E[xi-1, yi, zi-1,:,:].squeeze()*(1-xd) + fields.E[xi, yi, zi-1,:,:].squeeze()*xd
-    E11 = fields.E[xi-1, yi, zi,:,:].squeeze()*(1-xd) + fields.E[xi, yi, zi,:,:].squeeze()*xd
+    E00 = fields.E[xi-1, yi-1, zi-1,:,:].squeeze(axis=(1,2))*(1 - xd) + fields.E[xi, yi-1, zi-1,:,:].squeeze(axis=(1,2))*xd
+    E01 = fields.E[xi-1, yi-1, zi,:,:].squeeze(axis=(1,2))*(1-xd) + fields.E[xi, yi-1, zi,:,:].squeeze(axis=(1,2))*xd
+    E10 = fields.E[xi-1, yi, zi-1,:,:].squeeze(axis=(1,2))*(1-xd) + fields.E[xi, yi, zi-1,:,:].squeeze(axis=(1,2))*xd
+    E11 = fields.E[xi-1, yi, zi,:,:].squeeze(axis=(1,2))*(1-xd) + fields.E[xi, yi, zi,:,:].squeeze(axis=(1,2))*xd
 
     E0 = E00*(1-yd) + E10*yd
     E1 = E01*(1-yd) + E11*yd
     E = E0*(1-zd) + E1*zd
 
-    D00 = fields.D[xi-1, yi-1, zi-1,:,:].squeeze()*(1 - xd) + fields.D[xi, yi-1, zi-1,:,:].squeeze()*xd
-    D01 = fields.D[xi-1, yi-1, zi,:,:].squeeze()*(1-xd) + fields.D[xi, yi-1, zi,:,:].squeeze()*xd
-    D10 = fields.D[xi-1, yi, zi-1,:,:].squeeze()*(1-xd) + fields.D[xi, yi, zi-1,:,:].squeeze()*xd
-    D11 = fields.D[xi-1, yi, zi,:,:].squeeze()*(1-xd) + fields.D[xi, yi, zi,:,:].squeeze()*xd
+    D00 = fields.D[xi-1, yi-1, zi-1,:,:].squeeze(axis=(1,2))*(1 - xd) + fields.D[xi, yi-1, zi-1,:,:].squeeze(axis=(1,2))*xd
+    D01 = fields.D[xi-1, yi-1, zi,:,:].squeeze(axis=(1,2))*(1-xd) + fields.D[xi, yi-1, zi,:,:].squeeze(axis=(1,2))*xd
+    D10 = fields.D[xi-1, yi, zi-1,:,:].squeeze(axis=(1,2))*(1-xd) + fields.D[xi, yi, zi-1,:,:].squeeze(axis=(1,2))*xd
+    D11 = fields.D[xi-1, yi, zi,:,:].squeeze(axis=(1,2))*(1-xd) + fields.D[xi, yi, zi,:,:].squeeze(axis=(1,2))*xd
 
     D0 = D00*(1-yd) + D10*yd
     D1 = D01*(1-yd) + D11*yd

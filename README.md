@@ -21,11 +21,11 @@ The following dependencies are needed to run this code. Version numbers are thos
 
 Clone this repository to a convenient spot. Install Python and then (pip) install numpy, scipy, matplotlib, and NLopt. If you use conda, I recommend creating an environment with the specified versions. Add this repository to your Python path along with the Lumopt repository, which should be included with your Lumerical distribution. On Linux, lumopt is located by default in `/opt/lumerical/v231/api/python/lumopt`, where "v231" is the current version as of writing and changes with each release.
 
-Alternatively, you can also use the Python distribution bundled with Lumerical (which can be run within the Lumerical application). This contains numpy, scipy, and matplotlib pre-installed but does *not* include NLopt. If you are not using the NLopt wrapper in <code>optimizer/nlopt_optimizer.py</code> then you can get by without this dependency. The versions of numpy, scipy, and matplotlib listed in the dependencies are otherwise chosen to match those shipped with the current Lumerical distribution.
+Alternatively, you can also use the Python distribution bundled with Lumerical (which can be run within the Lumerical application). This contains numpy, scipy, and matplotlib pre-installed but does *not* include NLopt. If you are not using the NLopt wrapper in <code>lumopt_mbso.optimizer.nlopt_optimizer.py</code> then you can get by without this dependency. The versions of numpy, scipy, and matplotlib listed in the dependencies are otherwise chosen to match those shipped with the current Lumerical distribution.
 
 ## Usage
 
-This package is built on top of the Lumopt package, which is now shipped with Lumerical distributions. If you are unfamiliar with it, you should start [here](https://lumopt.readthedocs.io/en/latest/index.html). Lumopt has an object-oriented approach. The core functionality is in an object called Optimization that takes in Geometry, Figure of Merit, and Optimizer objects. Our package contains alternative implementations of each of these latter three that can be used interchangeably those included with Lumopt. More details on each of these are below.
+This package is built on top of the Lumopt package, which is now shipped with Lumerical distributions. If you are unfamiliar with it, you should start [here](https://lumopt.readthedocs.io/en/latest/index.html). Lumopt has an object-oriented approach. The core functionality is in an object called Optimization that takes in Geometry, Figure of Merit, and Optimizer objects. Our package contains alternative implementations of each of these latter three that can be used interchangeably with those included with Lumopt. More details on each of these are below, and further usage information is available in the Python docstrings for each class.
 
 ### Geometries
 
@@ -59,3 +59,5 @@ The Optimizer object is responsible for directly wrapping onto the optimization 
 ### Misc
 
 Various helper functions and analysis functions and scripts can be found in the utils folder. myoptimization.py in the main folder can be used instead of Lumopt's optimization.py. It inherits almost entirely with some minor changes for specific use cases. Examples can be found in the examples folder.
+
+Useful functions and scripts for analysis of finished optimizations can be found in <code>lumopt_mbso.utils.analysis.py</code> and in <code>lumopt_mbso/utils/analysis_scripts/</code>.

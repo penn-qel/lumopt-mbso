@@ -1,0 +1,1 @@
+The scripts in this directory are designed to be run from the command line for post-analysis of finished optimizations. They take as command-line inputs the path to a Lumerical simulation file, typically forward_0.fsp from the end of an optimization, and a path to save the data as a numpy .npz file.

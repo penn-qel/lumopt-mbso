@@ -1,5 +1,5 @@
 ###################################################################
-# Class: constraints.py
+# Class: ellipse_constraints.py
 
 # Description: This class generates constraint functions for a 3D
 # metasurface of elliptical pillars allowed to move around within fabrication constraints
@@ -13,7 +13,7 @@ from lumopt_mbso.utils.nearest_neighbor_iterator import nearest_neighbor_iterato
 from scipy.sparse import csr_matrix
 from collections import deque
 
-class PillarConstraints(object):
+class EllipseConstraints(object):
     """
         :param geo:             Handle to MovingMetasurface3D object for optimization geometry
         :param radius_type:     Flag determining if calculating mean or max of ellipses' two radii. Valid inputs 'mean' or 'max'

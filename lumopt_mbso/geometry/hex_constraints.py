@@ -1,20 +1,20 @@
 ###################################################################
-# Class: constraints.py
+# Class: hex_constraints.py
 
 # Description: This class generates constraint functions for a 3D
-# metasurface of elliptical pillars allowed to move around within fabrication constraints
+# metasurface of hexagonal objects allowed to move around within fabrication constraints
 # Author: Amelia Klein
 ###################################################################
 
 import numpy as np
-from lumopt_mbso.geometry.constraints import PillarConstraints
+from lumopt_mbso.geometry.ellipse_constraints import EllipseConstraints
 from scipy.optimize import NonlinearConstraint
 import itertools
 from lumopt_mbso.utils.nearest_neighbor_iterator import nearest_neighbor_iterator
 from scipy.sparse import csr_matrix
 from collections import deque
 
-class HexConstraints(PillarConstraints):
+class HexConstraints(EllipseConstraints):
     """
         :param geo:             Handle to HexagonMetasurface object for optimization geometry
         :param manual_jac:      Boolean determining whether to provide manual jacobian calculation or to use finite differences

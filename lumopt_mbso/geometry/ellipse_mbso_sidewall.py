@@ -1,5 +1,5 @@
 ###################################################################
-# Class: moving_metasurface3D_sidewall.py
+# Class: ellipse_mbso_sidewall.py
 
 # Description: this class defines a geometry object corresponding to a 3D
 # metasurface of elliptical pillars allowed to move around within fabrication constraints.
@@ -19,11 +19,11 @@ from lumopt.utilities.materials import Material
 from lumopt.utilities.wavelengths import Wavelengths
 from lumopt.utilities.gradients import GradientFields
 from lumopt.utilities.simulation import Simulation
-from lumopt_mbso.geometry.moving_metasurface3D import MovingMetasurface3D
+from lumopt_mbso.geometry.ellipse_mbso import EllipseMBSO
 from lumopt_mbso.utils.interpolate_fields import interpolate_fields
 from lumopt_mbso.utils.get_fields_from_cad import get_fields_from_cad
 
-class MovingMetasurface3DSidewall(MovingMetasurface3D):
+class EllipseMBSOSidewall(EllipseMBSO):
     """Defines object consisting of array of elliptical pillars, where axes lengths, positions, and
     rotations are all free optimization variables. Pillars are made with a sidewall angle.
 

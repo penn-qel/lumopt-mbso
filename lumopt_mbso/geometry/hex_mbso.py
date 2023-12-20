@@ -1,8 +1,8 @@
 ###################################################################
-# Class: moving_metasurface3D.py
+# Class: hex_mbso.py
 
 # Description: this class defines a geometry object corresponding to a 3D
-# metasurface of elliptical pillars allowed to move around within fabrication constraints
+# metasurface of hexagons allows to move around within fabrication constraints
 # Author: Amelia Klein
 ###################################################################
 
@@ -21,7 +21,7 @@ from lumopt.utilities.simulation import Simulation
 from lumopt_mbso.utils.interpolate_fields import interpolate_fields
 from lumopt_mbso.utils.get_fields_from_cad import get_fields_from_cad
 
-class MovingMetasurface3D(Geometry):
+class HexMBSO(Geometry):
     """Defines object consisting of array of elliptical pillars, where axes lengths, positions, and
     rotations are all free optimization variables.
 
@@ -29,37 +29,30 @@ class MovingMetasurface3D(Geometry):
     ----------------
         :param posx:            Array of shape (N,) defining initial x-coordinates of pillar centers
         :param posy:            Array of shape (N,) defining initial y-coordinates of pillar centers
-        :param rx:              Array of shape (N,) defining initial x-axis radius of each pillar
-        :param ry:              Array of shape (N,) defining initial y-axis radius of each pillar
-        :param min_feature_size:    Scalar that determines minimum pillar diameter and spacing.
+        :param r:               Array of shape (N,) defining radius of circle that hexagon inscribes
+        :param min_feature_size:    Scalar that determines minimum hexagon diameter and spacing.
         :param z:               z-position of bottom of metasurface
         :param h:               height of metasurface pillars
-        :param eps_in:          Permittivity of pillars
+        :param eps_in:          Permittivity inside hexagons
         :param eps_out:         Permittivity of surrounding material
 
     Optional kwargs
     ---------------
-        :kwarg phi:             Array of shape (N,) defining intial phi-rotation of each pillar in degrees. Defaults to all 0
         :kwarg height_precision:Number of points along height of each pillar used to calculate gradient. Default 10
-        :kwarg angle_precision: Number of points along circumference of pillar used to calculate gradient. Default 20
-        :kwarg pillars_rotate:  Boolean determining if pillar rotation is an optimization variable. Default True
+        :kwarg edge_precision: Number of points along each edge of hexagon used to calculate gradient. Default 4
         :kwarg scaling_factor:  Factor to scale all position and radius parameters. Default 1
-        :kwarg phi_scaling:     Scaling factor to scale rotation parameters. Default 1/180
         :kwarg limit_nearest_neighbor_cons: Flag to limit constraints to nearest neighbors in initial grid. Default True
         :kwarg make_meshgrid:   Flag to automatically make meshgrid of input x and y points. Default False.
         :kwarg dx:              Step size for computing FOM gradient using permittivity perturbations. Default 10e-9
         :kwarg params_debug:    Flag for a debug mode to print parameters on updates. Default False.
     """
 
-    def __init__(self, posx, posy, rx, ry, min_feature_size, z, h, eps_in, eps_out, **kwargs):
+    def __init__(self, posx, posy, r, min_feature_size, z, h, eps_in, eps_out, **kwargs):
         
         #Unpack kwargs
-        phi = kwargs.get('phi', None)
-        pillars_rotate = kwargs.get('pillars_rotate', True)
         height_precision = kwargs.get('height_precision', 10)
-        angle_precision = kwargs.get('angle_precision', 20)
+        edge_precision = kwargs.get('edge_precision', 4)
         scaling_factor = kwargs.get('scaling_factor', 1)
-        phi_scaling = kwargs.get('phi_scaling', 1/180)
         limit_nearest_neighbor_cons = kwargs.get('limit_nearest_neighbor_cons', True)
         make_meshgrid = kwargs.get('make_meshgrid', False)
         dx = kwargs.get('dx', 10e-9)
@@ -68,17 +61,15 @@ class MovingMetasurface3D(Geometry):
 
         self.init_x = posx.flatten()
         self.init_y = posy.flatten()
-        self.rx = rx.flatten()
-        self.ry = ry.flatten()
+        self.r = r.flatten()
         
         #Option for constructing meshgrid out of x and y arrays automatically
         if make_meshgrid:
             x0, y0 = np.meshgrid(self.init_x, self.init_y, indexing='ij')
-            rx0, ry0 = np.meshgrid(self.rx, self.ry, indexing = 'ij')
+            r1, r2 = np.meshgrid(self.r, self.r, indexing = 'ij')
             self.init_x = x0.flatten()
             self.init_y = y0.flatten()
-            self.rx = rx0.flatten()
-            self.ry = ry0.flatten()
+            self.r = r1.flatten()
 
         self.offset_x = np.zeros(self.init_x.size).flatten()
         self.offset_y = np.zeros(self.init_x.size).flatten()
@@ -87,23 +78,16 @@ class MovingMetasurface3D(Geometry):
         self.eps_out = eps_out if isinstance(eps_out, Material) else Material(eps_out)
         self.eps_in = eps_in if isinstance(eps_in, Material) else Material(eps_in)
         self.height_precision = int(height_precision)
-        self.angle_precision = int(angle_precision)
-
-        if phi is None:
-            self.phi = np.zeros(self.rx.size).flatten()
-        else:
-            self.phi = phi.flatten()
+        self.edge_precision = int(edge_precision)
 
         if self.h <= 0:
             raise UserWarning("pillar height must be positive.")
 
-        if not(self.init_x.size == self.init_y.size == self.rx.size == self.ry.size == self.phi.size):
+        if not(self.init_x.size == self.init_y.size == self.r.size):
             raise UserWarning('Initial parameter arrays must have same shape (N,)')
 
-        self.pillars_rotate = pillars_rotate
         self.min_feature_size = float(min_feature_size)
         self.scaling_factor = scaling_factor
-        self.phi_scaling = phi_scaling
         self.dx = dx
 
         self.bounds = self.calculate_bounds()
@@ -124,7 +108,8 @@ class MovingMetasurface3D(Geometry):
     def add_geo_impl(self, sim, only_update, params, h, z, groupname = 'Pillars'):
         '''Called by add_geo. Implements actual pushing of parameters to Lumerical'''
 
-        offset_x, offset_y, rx, ry, phi = self.get_from_params(params)
+        offset_x, offset_y, r = self.get_from_params(params)
+        points = self.get_vertex_matrix(params)
 
         if not only_update:
             sim.fdtd.addstructuregroup()
@@ -132,22 +117,19 @@ class MovingMetasurface3D(Geometry):
             sim.fdtd.set('x', 0)
             sim.fdtd.set('y', 0)
             sim.fdtd.set('z', 0)
-
-            #Set parameters as user props
             sim.fdtd.adduserprop('posx', 6, offset_x + self.init_x)
             sim.fdtd.adduserprop('posy', 6, offset_y + self.init_y)
-            sim.fdtd.adduserprop('rx', 6, rx)
-            sim.fdtd.adduserprop('ry', 6, ry)
-            sim.fdtd.adduserprop('phi', 6, phi)
+            sim.fdtd.adduserprop('r', 6, r)
+            sim.fdtd.adduserprop('points', 6, points)
             sim.fdtd.adduserprop('height', 0, h)
             sim.fdtd.adduserprop('z0', 0, z)
 
         sim.fdtd.select(groupname)
         sim.fdtd.set('posx', offset_x + self.init_x)
         sim.fdtd.set('posy', offset_y + self.init_y)
-        sim.fdtd.set('rx', rx)
-        sim.fdtd.set('ry', ry)
-        sim.fdtd.set('phi', phi)
+        sim.fdtd.set('r', r)
+        sim.fdtd.set('points', points)
+
         self.create_script(sim, groupname, only_update)
 
     def add_geo(self, sim, params, only_update):
@@ -162,89 +144,88 @@ class MovingMetasurface3D(Geometry):
 
     def update_geometry(self, params, sim = None):
         '''Updates internal values of parameters according to input'''
-        self.offset_x, self.offset_y, self.rx, self.ry, self.phi = self.get_from_params(params)
+        self.offset_x, self.offset_y, self.r = self.get_from_params(params)
         if self.params_debug:
             self.print_current_params()
 
     def calculate_gradients(self, gradient_fields):
         '''Calculates gradient at each wavelength with respect to all parameters'''
-
-        #Ellipse described by x = x0 + rx*cos(theta), y = y0 + ry*sin(theta) 
+ 
+        #Split into six segments, parameterized by pairs of vertices
         eps_in = self.eps_in.get_eps(gradient_fields.forward_fields.wl)
         eps_out = self.eps_out.get_eps(gradient_fields.forward_fields.wl)
         eps_0 = sp.constants.epsilon_0
         wl = gradient_fields.forward_fields.wl
-        phi = np.radians(self.phi).reshape((self.phi.size, 1, 1))
 
         z = np.linspace(self.z, self.z + self.h, self.height_precision)
-        theta = np.linspace(0, 2*np.pi, self.angle_precision)
-        pillars = np.arange(self.rx.size)
-        pillarv, thetav, zv = np.meshgrid(pillars, theta, z, indexing = 'ij')
 
-        u = self.rx[pillarv]*np.cos(thetav)
-        v = self.ry[pillarv]*np.sin(thetav)
-        xv = self.offset_x[pillarv] + self.init_x[pillarv] + u*np.cos(phi) - v*np.sin(phi)
-        yv = self.offset_y[pillarv] + self.init_y[pillarv] + u*np.sin(phi) + v*np.cos(phi)
+        #parameterize line segments for each hex. NOTE: do we include endpoints??
+        t = np.linspace(0,1,self.edge_precision+1, endpoint=False)
+        t = t[1:]
 
+        hexes = np.arange(self.r.size)
+        segments = np.arange(6)
+
+        #Nx6xedge_precisionxheight_precision matrix of points
+        hexv, segmentv, tv, zv = np.meshgrid(hexes, segments, t, z, indexing='ij')
+
+        x0 = self.offset_x[hexv] + self.init_x[hexv]
+        y0 = self.offset_y[hexv] + self.init_y[hexv]
+        r = self.r[hexv]
+
+        #Calculate (x,y) for all points
+        xv, yv = HexagonMetasurface.get_hex_point(x0, y0, r, segmentv, tv)
+
+        #Get fields
         Ef, Df = interpolate_fields(xv.flatten(), yv.flatten(), zv.flatten(), gradient_fields.forward_fields)
         Ea, Da = interpolate_fields(xv.flatten(), yv.flatten(), zv.flatten(), gradient_fields.adjoint_fields)
 
-        Ef = Ef.reshape(pillars.size, theta.size, z.size, wl.size, 3)
-        Df = Df.reshape(pillars.size, theta.size, z.size, wl.size, 3)
-        Ea = Ea.reshape(pillars.size, theta.size, z.size, wl.size, 3)
-        Da = Da.reshape(pillars.size, theta.size, z.size, wl.size, 3)
+        fieldshape = (hexes.size, 6, t.size, z.size, wl.size, 3)
+        Ef = Ef.reshape(fieldshape)
+        Df = Df.reshape(fieldshape)
+        Ea = Ea.reshape(fieldshape)
+        Da = Da.reshape(fieldshape)
 
+        #Get normal vectors as (Nx6xt.sizexz.size) matrix
+        midx, midy = HexagonMetasurface.get_hex_point(x0, y0, r, segmentv, 0.5)
+        nx = midx - x0 
+        ny = midy - y0
 
-        #Calculate surface normal vectors
-        phiv = np.reshape(phi, (phi.size, 1, 1))
-        nx = (self.ry[pillarv]*np.cos(thetav)*np.cos(phiv) - self.rx[pillarv]*np.sin(thetav)*np.sin(phiv)).reshape(pillars.size, theta.size, z.size, 1)
-        ny = (self.rx[pillarv]*np.sin(thetav)*np.cos(phiv) + self.ry[pillarv]*np.cos(thetav)*np.sin(phiv)).reshape(pillars.size, theta.size, z.size, 1)
-
+        #Normalize normal vectors
         nlength = np.sqrt(np.square(nx) + np.square(ny))
-        nx = nx/nlength
-        ny = ny/nlength
+        nx = (nx/nlength).reshape(hexes.size,6,t.size,z.size,1)
+        ny = (ny/nlength).reshape(hexes.size,6,t.size,z.size,1)
 
-        normal = np.zeros((pillars.size, theta.size, z.size, 1, 3))
-        normal[:,:,:,:,0] = nx
-        normal[:,:,:,:,1] = ny
+        normal = np.zeros((hexes.size, 6, t.size, z.size, 1, 3))
+        normal[:,:,:,:,:,0] = nx
+        normal[:,:,:,:,:,1] = ny
 
+        #Separate parallel and perpendicular fields
         def project(a,n):
-            return np.expand_dims(np.sum(a*n, axis=-1), axis = 4) * n
+            return np.expand_dims(np.sum(a*n, axis=-1), axis = 5) * n
 
         Dfperp = project(Df, normal)
         Daperp = project(Da, normal)
         Efpar = Ef - project(Ef, normal)
         Eapar = Ea - project(Ea, normal)
 
-        #Calculates derivatives of level set, scaled to use opt parameters rather than real ones
-        A = (xv - self.offset_x[pillarv] - self.init_x[pillarv])*np.cos(phiv) + (yv - self.offset_y[pillarv] - self.init_y[pillarv])*np.sin(phiv)
-        B = -(xv - self.offset_x[pillarv] - self.init_x[pillarv])*np.sin(phiv) + (yv - self.offset_y[pillarv] - self.init_y[pillarv])*np.cos(phiv)
-        d_dx = np.expand_dims((-2*A*np.cos(phi)/np.power(self.rx[pillarv], 2) + 2*B*np.sin(phi)/np.power(self.ry[pillarv], 2))/self.scaling_factor, axis=3)
-        d_dy = np.expand_dims((-2*A*np.sin(phi)/np.power(self.rx[pillarv], 2) - 2*B*np.cos(phi)/np.power(self.ry[pillarv], 2))/self.scaling_factor, axis=3)
-        d_drx = np.expand_dims((-2*np.power(A, 2)/np.power(self.rx[pillarv], 3))/self.scaling_factor, axis=3)
-        d_dry = np.expand_dims((-2*np.power(B, 2)/np.power(self.rx[pillarv], 3))/self.scaling_factor, axis=3)
-        d_dphi = np.expand_dims((-2*A*B*(np.power(self.rx[pillarv],2) - np.power(self.ry[pillarv],2))/(np.power(self.rx[pillarv],2)*np.power(self.ry[pillarv],2)))/self.phi_scaling, axis=3)
+        #Factors to multiply for each derivative (dot product of normal vector with perturbation vector)
+        d_dx = normal[:,:,:,:,:,0]
+        d_dy = normal[:,:,:,:,:,1]
+        d_dr = 1
 
-        if self.pillars_rotate:
-            grad_mag = np.sqrt(d_dx**2 + d_dy**2 + d_drx**2 + d_dry**2 + d_dphi**2)
-        else:
-            grad_mag = np.sqrt(d_dx**2 + d_dy**2 + d_drx**2 + d_dry**2)
+        #Adjoint integrand
+        integrand = 2*np.real(eps_0*(eps_in-eps_out)*np.sum(Efpar*Eapar, axis=-1)+ (1/eps_out - 1/eps_in)/eps_0*np.sum(Dfperp*Daperp, axis=-1))
+        #Multiply by arc length of segment (r)
+        curve_integrand = integrand*np.expand_dims(r, axis=4)
 
-        #Calculates integrand according to Eq 5.40 in Owen Miller's thesis. Multiplies by arc length parameter in order to integrate over parameterized ellipse
-        integrand = -2/grad_mag*np.real(eps_0 * (eps_in - eps_out) *np.sum(Efpar*Eapar, axis=-1) + (1/eps_out - 1/eps_in) /eps_0 * np.sum(Dfperp*Daperp, axis=-1))
-        curve_integrand = integrand * np.expand_dims(np.sqrt(np.square(self.rx[pillarv]*np.sin(thetav)) + np.square(self.ry[pillarv]*np.cos(thetav))), axis = 3)
+        #Integrate over z and t, sum over segments
+        deriv_x = np.sum(np.trapz(np.trapz(d_dx*curve_integrand, z, axis=3),t,axis=2),axis=1)
+        deriv_y = np.sum(np.trapz(np.trapz(d_dy*curve_integrand, z, axis=3),t,axis=2),axis=1)
+        deriv_r = np.sum(np.trapz(np.trapz(d_dr*curve_integrand, z, axis=3),t,axis=2),axis=1)
 
-        deriv_x = np.trapz(np.trapz(d_dx*curve_integrand, z, axis = 2), theta, axis = 1)
-        deriv_y = np.trapz(np.trapz(d_dy*curve_integrand, z, axis = 2), theta, axis = 1)
-        deriv_rx = np.trapz(np.trapz(d_drx*curve_integrand, z, axis = 2), theta, axis = 1)
-        deriv_ry = np.trapz(np.trapz(d_dry*curve_integrand, z, axis = 2), theta, axis = 1)
-        deriv_phi = np.trapz(np.trapz(d_dphi*curve_integrand, z, axis = 2), theta, axis = 1)
-        
-        if self.pillars_rotate:
-            total_deriv = np.concatenate((deriv_x, deriv_y, deriv_rx, deriv_ry, deriv_phi))
-        else:
-            total_deriv = np.concatenate((deriv_x, deriv_y, deriv_rx, deriv_ry))
-        return total_deriv
+        return np.concatenate((deriv_x, deriv_y, deriv_r))/self.scaling_factor
+
 
     def calculate_gradients_on_cad(self, sim, forward_fields, adjoint_fields, wl_scaling_factor):
         '''Semi hack to reduce memory usage of gradient calculation. Actual calculation of gradients still done in Python
@@ -281,46 +262,36 @@ class MovingMetasurface3D(Geometry):
         #Return name of result in CAD
         return 'total_deriv'
 
-    def get_scaled_params(self, offset_x, offset_y, rx, ry, phi = None):
+    def get_scaled_params(self, offset_x, offset_y, r):
         '''Retrieves correctly scaled individual parameter values'''
-        s1 = self.scaling_factor
-        s2 = self.phi_scaling
-        if self.pillars_rotate:
-            return np.concatenate((offset_x*s1, offset_y*s1, rx*s1, ry*s1, phi*s2))
-        else:
-            return np.concatenate((offset_x*s1, offset_y*s1, rx*s1, ry*s1))
+        s = self.scaling_factor
+        return np.concatenate((offset_x*s, offset_y*s, r*s))
 
 
     def get_current_params(self):
         '''Returns list of params as single array'''
-        return self.get_scaled_params(self.offset_x, self.offset_y, self.rx, self.ry, self.phi)
+        return self.get_scaled_params(self.offset_x, self.offset_y, self.r)
 
     def get_from_params(self, params):
         '''Retrieves correctly scaled individual parameter values from list of params'''
-        if self.pillars_rotate:
-            offset_x, offset_y, rx, ry, phi = np.split(params, 5)
-        else:
-            offset_x, offset_y, rx, ry = np.split(params, 4)
-            phi = self.phi*self.phi_scaling
-        s1 = self.scaling_factor
-        s2 = self.phi_scaling
-        return offset_x/s1, offset_y/s1, rx/s1, ry/s1, phi/s2
+        offset_x, offset_y, r = np.split(params, 3)
+        s = self.scaling_factor
+        return offset_x/s, offset_y/s, r/s
 
 
     def plot(self, ax, constrained = None):
         '''Plots current geometry'''
         x = (self.offset_x + self.init_x)*1e6
         y = (self.offset_y + self.init_y)*1e6
-        rx = self.rx.copy()*1e6
-        ry = self.ry.copy()*1e6
-        maxr = max(np.amax(rx), np.amax(ry))
+        r = self.r.copy()*1e6
+        maxr = np.amax(r)
         ax.clear()
         for i, xval in enumerate(x):
             color = 'black'
             if constrained is not None and i in constrained:
                 color = 'red'
-            ellipse = patches.Ellipse((xval, y[i]), 2*rx[i], 2*ry[i], angle = self.phi[i], facecolor=color)
-            ax.add_patch(ellipse)
+            hexagon = patches.RegularPolygon((xval, y[i]), 6, radius=r[i], orientation = np.pi/2, facecolor=color)
+            ax.add_patch(hexagon)
         ax.set_title('Geometry')
         ax.set_xlim(min(x) - maxr, max(x) + maxr)
         ax.set_ylim(min(y) - maxr, max(y) + maxr)
@@ -331,30 +302,23 @@ class MovingMetasurface3D(Geometry):
     def calculate_bounds(self):
         '''Calculates bounds given the minimum feature size'''
         '''Bounds should be [min_feature_size/2, inf] for radiii and [-inf, inf] for offsets'''
-        radius_bounds = [(self.min_feature_size*self.scaling_factor/2, np.inf)]*self.rx.size*2
-        offset_bounds = [(-np.inf, np.inf)]*self.rx.size*2
-        phi_bounds = [(-np.inf, np.inf)]*(self.rx.size)
-        if self.pillars_rotate:
-            return (offset_bounds + radius_bounds + phi_bounds)
-        else:
-            return (offset_bounds + radius_bounds)
+        radius_bounds = [(self.min_feature_size*self.scaling_factor/2, np.inf)]*self.r.size
+        offset_bounds = [(-np.inf, np.inf)]*self.r.size*2
+        return (offset_bounds + radius_bounds)
            
 
     def create_script(self, sim, groupname = 'Pillars', only_update = False):
         '''Creates Lumerical script for structure group'''
         struct_script = ('deleteall;\n'
                 'for(i=1:length(posx)) {\n'
-                    'addcircle;\n'
+                    'addpoly;\n'
                     'set("name", "pillar_"+num2str(i));\n'
-                    'set("make ellipsoid", true);\n'
-                    'set("first axis", "z");\n'
-                    'set("rotation 1", phi(i));\n'
-                    'set("x", posx(i));\n'
-                    'set("y", posy(i));\n'
+                    'set("x", 0);\n'
+                    'set("y", 0);\n'
                     'set("z min", z0);\n'
                     'set("z max", z0+height);\n'
-                    'set("radius", rx(i));\n'
-                    'set("radius 2", ry(i));\n')
+                    'vertices = reshape(points(i,:,:), [6,2]);\n'
+                    'set("vertices", vertices);\n')
 
         sim.fdtd.select(groupname) 
         if self.eps_in.mesh_order:
@@ -381,21 +345,45 @@ class MovingMetasurface3D(Geometry):
 
     def print_current_params(self, scaled = False):
         params = self.get_current_params()
-        if self.pillars_rotate:
-            offset_x, offset_y, rx, ry, phi = np.split(params, 5)
-        else:
-            offset_x, offset_y, rx, ry, phi = np.split(params, 4)
+        offset_x, offset_y, r = np.split(params, 3)
         print('x offset: ')
         print(offset_x) if scaled else print(self.offset_x)
         print('y offset: ')
         print(offset_y) if scaled else print(self.offset_y)
-        print('rx:')
-        print(rx) if scaled else print(self.rx)
-        print('ry:')
-        print(ry) if scaled else print(self.ry)
-        if self.pillars_rotate:
-            print('phi:')
-            print(phi) if scaled else print(self.phi)
+        print('r:')
+        print(r) if scaled else print(self.r)
+
+    def get_vertex_matrix(self, params):
+        '''Get Nx6x2 matrix of all vertex points for all hexagons'''
+        offset_x, offset_y, r = self.get_from_params(params)
+        x0 = offset_x + self.init_x
+        y0 = offset_y + self.init_y
+
+        #Pre-allocate Nx6x2 array of points
+        points = np.empty((offset_x.size,6,2))
+
+        #Iterate over each vertex
+        for i in range(6):
+            points[:,i,:] = np.stack(HexagonMetasurface.get_vertex(x0,y0,r,i), axis=-1)
+
+        return points
+
+    @staticmethod
+    def get_vertex(x0, y0, r, i):
+        '''Returns (x,y) for ith vertex of hexagons, i = 0,1,2,3,4,5'''
+        angle = np.radians(60)
+        return x0 + r*np.cos(i*angle), y0 + r*np.sin(i*angle)
+
+    @staticmethod
+    def get_hex_point(x0, y0, r, i, t):
+        '''Returns (x,y) on segment between i and i+1 vertex parameterized by 0<t<1'''
+        
+        #Get endpoints
+        x1, y1 = HexagonMetasurface.get_vertex(x0,y0,r,i)
+        x2, y2 = HexagonMetasurface.get_vertex(x0,y0,r,i+1)
+
+        #Parametric equation of line segment
+        return x1 + (x2 - x1)*t, y1 + (y2 - y1)*t
 
     @staticmethod
     def get_params_from_existing_simulation(filename, get_wavelengths = False):
@@ -413,9 +401,7 @@ class MovingMetasurface3D(Geometry):
         sim.fdtd.select('Pillars')
         params['posx'] = sim.fdtd.get('posx').flatten()
         params['posy'] = sim.fdtd.get('posy').flatten()
-        params['rx'] = sim.fdtd.get('rx').flatten()
-        params['ry'] = sim.fdtd.get('ry').flatten()
-        params['phi'] = sim.fdtd.get('phi').flatten()
+        params['r'] = sim.fdtd.get('r').flatten()
         params['z'] = sim.fdtd.get('z0')
         params['h'] = sim.fdtd.get('height')
 
@@ -432,11 +418,11 @@ class MovingMetasurface3D(Geometry):
         '''Creates a geometry object based on an existing structure saved in a .fsp sim file.
         For use with analysis only, as will put dummy parameters for inputs related to optimization'''
 
-        params = MovingMetasurface3D.get_params_from_existing_simulation(filename, get_wavelengths)
+        params = HexagonMetasurface.get_params_from_existing_simulation(filename, get_wavelengths)
 
-        geom = MovingMetasurface3D(posx = params['posx'], posy = params['posy'], rx = params['rx'], ry = params['ry'], 
+        geom = HexagonMetasurface(posx = params['posx'], posy = params['posy'], r = params['r'], 
             min_feature_size = 0, z = params['z'], h = params['h'], eps_in = 1, eps_out = 2.4**2, 
-            phi = params['phi'], scaling_factor = 1, phi_scaling = 1, limit_nearest_neighbor_cons = False)
+            scaling_factor = 1, limit_nearest_neighbor_cons = False)
 
         if get_wavelengths:
             return geom, params['wl']

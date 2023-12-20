@@ -1,5 +1,3 @@
-# Title
-
 ## Introduction
 
 This repository contains an expansion to the [Lumopt](https://lumopt.readthedocs.io/en/latest/) repository for adjoint optimizations using Lumerical. The main new features of this repository are free-space figures of merit and parameterizations for many-body shape optimizations on arrays of simple objects.

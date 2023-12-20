@@ -5,9 +5,9 @@
 # Author: Amelia Klein
 ###############################################################
 
-from fom.ktransmissionfom import KTransmissionFom
-from fom.transmissionfom import TransmissionFom
-from fom.custommodematch import CustomModeMatch
+from lumopt_mbso.fom.ktransmissionfom import KTransmissionFom
+from lumopt_mbso.fom.transmissionfom import TransmissionFom
+from lumopt_mbso.fom.custommodematch import CustomModeMatch
 import numpy as np
 
 

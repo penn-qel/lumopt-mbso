@@ -18,8 +18,8 @@ from lumopt.utilities.materials import Material
 from lumopt.utilities.wavelengths import Wavelengths
 from lumopt.utilities.gradients import GradientFields
 from lumopt.utilities.simulation import Simulation
-from utils.interpolate_fields import interpolate_fields
-from utils.get_fields_from_cad import get_fields_from_cad
+from lumopt_mbso.utils.interpolate_fields import interpolate_fields
+from lumopt_mbso.utils.get_fields_from_cad import get_fields_from_cad
 
 class MovingMetasurface3D(Geometry):
     """Defines object consisting of array of elliptical pillars, where axes lengths, positions, and

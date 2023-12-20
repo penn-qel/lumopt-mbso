@@ -9,7 +9,7 @@
 import numpy as np
 from scipy.optimize import NonlinearConstraint
 import itertools
-from utils.nearest_neighbor_iterator import nearest_neighbor_iterator
+from lumopt_mbso.utils.nearest_neighbor_iterator import nearest_neighbor_iterator
 from scipy.sparse import csr_matrix
 from collections import deque
 

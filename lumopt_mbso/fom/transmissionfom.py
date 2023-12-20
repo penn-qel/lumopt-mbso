@@ -15,9 +15,9 @@ import copy
 from lumopt.utilities.wavelengths import Wavelengths
 from lumopt.figures_of_merit.modematch import ModeMatch
 from lumopt.lumerical_methods.lumerical_scripts import get_fields
-from fom.wavelengthintegrals import fom_wavelength_integral, fom_gradient_wavelength_integral_impl, fom_gradient_wavelength_integral_on_cad_impl
-from utils.spatial_integral import spatial_integral
-import utils.ffthelpers as ffthelpers
+from lumopt_mbso.fom.wavelengthintegrals import fom_wavelength_integral, fom_gradient_wavelength_integral_impl, fom_gradient_wavelength_integral_on_cad_impl
+from lumopt_mbso.utils.spatial_integral import spatial_integral
+import lumopt_mbso.utils.ffthelpers as ffthelpers
 
 class TransmissionFom(object):
     """Calculates the figure of merit by integrating the Poynting vector through a portion of the monitor. 

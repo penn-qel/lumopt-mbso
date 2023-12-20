@@ -11,9 +11,9 @@ import scipy as sp
 import lumapi
 from lumopt.lumerical_methods.lumerical_scripts import get_fields
 from lumopt.utilities.scipy_wrappers import wrapped_GridInterpolator
-from utils.interpolate_fields import interpolate_Efield, interpolate_Hfield
+from lumopt_mbso.utils.interpolate_fields import interpolate_Efield, interpolate_Hfield
 from lumopt.utilities.fields import Fields
-from utils.ffthelpers import propagate_fields
+from lumopt_mbso.utils.ffthelpers import propagate_fields
 
 def AiryDisk(depth, radius, index, x0, y0, z0, norm = np.array([0, 0, -1]), pol_norm = np.array([1, 0, 0])):
     #Depth = focal depth of lens

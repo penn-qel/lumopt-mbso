@@ -12,7 +12,7 @@ from matplotlib import animation
 from lumopt.optimization import Optimization
 from lumopt.utilities.simulation import Simulation
 from lumopt.lumerical_methods.lumerical_scripts import get_fields
-from utils.ffthelpers import propagate_fields
+from lumopt_mbso.utils.ffthelpers import propagate_fields
 
 def transmission_vs_NA(fom, name = 'forward_0', figsize = None, dpi = None, use_var_fdtd = False):
     '''Creates plot of transmission vs NA for ktransmissionfom simulations'''

@@ -5,10 +5,10 @@
 # Author: Amelia Klein
 ###############################################################
 
-from fom.transmissionfom import TransmissionFom
+from lumopt_mbso.fom.transmissionfom import TransmissionFom
 import numpy as np
 import scipy.constants
-import utils.ffthelpers as ffthelpers
+import lumopt_mbso.utils.ffthelpers as ffthelpers
 from lumopt.figures_of_merit.modematch import ModeMatch
 
 class KTransmissionFom(TransmissionFom):

@@ -16,8 +16,8 @@ from lumopt.utilities.wavelengths import Wavelengths
 from lumopt.figures_of_merit.modematch import ModeMatch
 from lumopt.utilities.materials import Material
 from lumopt.lumerical_methods.lumerical_scripts import get_fields
-from fom.wavelengthintegrals import fom_wavelength_integral, fom_gradient_wavelength_integral_impl, fom_gradient_wavelength_integral_on_cad_impl
-from utils.spatial_integral import spatial_integral
+from lumopt_mbso.fom.wavelengthintegrals import fom_wavelength_integral, fom_gradient_wavelength_integral_impl, fom_gradient_wavelength_integral_on_cad_impl
+from lumopt_mbso.utils.spatial_integral import spatial_integral
 
 class CustomModeMatch(object):
 

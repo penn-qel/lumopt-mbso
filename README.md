@@ -1,6 +1,6 @@
 ## Introduction
 
-This repository contains an expansion to the [Lumopt](https://lumopt.readthedocs.io/en/latest/) repository for adjoint optimizations using Lumerical. The main new features of this repository are free-space figures of merit and parameterizations for many-body shape optimizations on arrays of simple objects.
+This repository contains an expansion to the Lumopt repository ([Docs](https://lumopt.readthedocs.io/en/latest/)|[Github](https://github.com/chriskeraly/lumopt)|[Lumerical](https://www.lumerical.com/solutions/inverse-design/)) for adjoint optimizations using Lumerical. The main new features of this repository are free-space figures of merit and parameterizations for many-body shape optimizations on arrays of simple objects.
 
 This repository is released under a MIT license. If you use this repository in published work, please cite: [publication pending]. As much of this work is based on Lumopt, consider citing [their work](https://www.osapublishing.org/oe/abstract.cfm?uri=oe-21-18-21693) as well. 
 

@@ -15,24 +15,32 @@ from collections import deque
 
 class EllipseConstraints(object):
     """
-        :param geo:             Handle to MovingMetasurface3D object for optimization geometry
-        :param radius_type:     Flag determining if calculating mean or max of ellipses' two radii. Valid inputs 'mean' or 'max'
-        :param manual_jac:      Boolean determining whether to provide manual jacobian calculation or to use finite differences
-        :param print_warning:   Boolean determining whether to print when a constraint has a value < 0
-        :param save_list:       Boolean determining whether to generate and save the list of constraints pairs once at start up
+    Parameters
+    ---------------
+        :param geo:             Handle to EllipseMBSO object for optimization geometry
+
+    Optional kwargs
+    --------------
+        :kwarg radius_type:     Flag determining if calculating mean or max of ellipses' two radii. Valid inputs 'mean' or 'max'. Default 'mean'
+        :kwarg manual_jac:      Boolean determining whether to provide manual jacobian calculation or to use finite differences. Default True
+        :kwarg print_warning:   Boolean determining whether to print when a constraint has a value < 0. Default True
+        :kwarg save_list:       Boolean determining whether to generate and save the list of constraints pairs once at start up. Default False
     """
 
-    def __init__(self, geo, radius_type = 'mean', manual_jac = True, print_warning = True, save_list = False):
+    def __init__(self, geo, **kwargs):
         '''The constructor for the PillarConstraints class'''
 
         self.geo = geo
         self.num_pillars = geo.offset_x.size
-        self.print_warning = print_warning
-        self.radius_type = radius_type
-        self.manual_jac = True
+
+        #Unpack kwargs
+        self.print_warning = kwargs.get('print_warning', True)
+        self.radius_type = kwargs.get('radius_type', 'mean')
+        self.manual_jac = kwargs.get('manual_jac', True)
+        self.save_list = kwargs.get('save_list', True)
         if not (self.radius_type == 'mean' or self.radius_type == 'max'):
             raise UserWarning("Valid radius types are 'mean' and 'max'")
-        self.save_list = save_list
+        
         self.constraint_list = None
         self.num_constraints = sum(1 for _ in self.get_pair_iterator())
     

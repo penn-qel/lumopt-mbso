@@ -16,16 +16,22 @@ from collections import deque
 
 class HexConstraints(EllipseConstraints):
     """
-        :param geo:             Handle to HexagonMetasurface object for optimization geometry
-        :param manual_jac:      Boolean determining whether to provide manual jacobian calculation or to use finite differences
-        :param print_warning:   Boolean determining whether to print when a constraint has a value < 0
-        :param save_list:       Boolean determining whether to generate and save the list of constraints pairs once at start up
+    Parameters
+    ---------------
+        :param geo:             Handle to HexMBSO object for optimization geometry
+
+    Optional kwargs
+    --------------
+        :kwarg radius_type:     Flag determining if calculating mean or max of ellipses' two radii. Valid inputs 'mean' or 'max'. Default 'mean'
+        :kwarg manual_jac:      Boolean determining whether to provide manual jacobian calculation or to use finite differences. Default True
+        :kwarg print_warning:   Boolean determining whether to print when a constraint has a value < 0. Default True
+        :kwarg save_list:       Boolean determining whether to generate and save the list of constraints pairs once at start up. Default False
     """
 
-    def __init__(self, geo, manual_jac = True, print_warning = True, save_list = False):
+    def __init__(self, geo, **kwargs):
         '''The constructor for the HexConstraints class'''
 
-        super().__init__(geo, manual_jac = manual_jac, print_warning = print_warning, save_list = save_list)
+        super().__init__(geo, **kwargs)
 
     def physical_constraint(self, params):
         '''Returns array of constraints according to pairs of elements in physical units of nm'''

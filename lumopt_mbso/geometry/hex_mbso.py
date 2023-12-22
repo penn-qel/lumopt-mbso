@@ -174,7 +174,7 @@ class HexMBSO(Geometry):
         r = self.r[hexv]
 
         #Calculate (x,y) for all points
-        xv, yv = HexagonMetasurface.get_hex_point(x0, y0, r, segmentv, tv)
+        xv, yv = HexMBSO.get_hex_point(x0, y0, r, segmentv, tv)
 
         #Get fields
         Ef, Df = interpolate_fields(xv.flatten(), yv.flatten(), zv.flatten(), gradient_fields.forward_fields)
@@ -187,7 +187,7 @@ class HexMBSO(Geometry):
         Da = Da.reshape(fieldshape)
 
         #Get normal vectors as (Nx6xt.sizexz.size) matrix
-        midx, midy = HexagonMetasurface.get_hex_point(x0, y0, r, segmentv, 0.5)
+        midx, midy = HexMBSO.get_hex_point(x0, y0, r, segmentv, 0.5)
         nx = midx - x0 
         ny = midy - y0
 
@@ -364,7 +364,7 @@ class HexMBSO(Geometry):
 
         #Iterate over each vertex
         for i in range(6):
-            points[:,i,:] = np.stack(HexagonMetasurface.get_vertex(x0,y0,r,i), axis=-1)
+            points[:,i,:] = np.stack(HexMBSO.get_vertex(x0,y0,r,i), axis=-1)
 
         return points
 
@@ -379,8 +379,8 @@ class HexMBSO(Geometry):
         '''Returns (x,y) on segment between i and i+1 vertex parameterized by 0<t<1'''
         
         #Get endpoints
-        x1, y1 = HexagonMetasurface.get_vertex(x0,y0,r,i)
-        x2, y2 = HexagonMetasurface.get_vertex(x0,y0,r,i+1)
+        x1, y1 = HexMBSO.get_vertex(x0,y0,r,i)
+        x2, y2 = HexMBSO.get_vertex(x0,y0,r,i+1)
 
         #Parametric equation of line segment
         return x1 + (x2 - x1)*t, y1 + (y2 - y1)*t
@@ -418,9 +418,9 @@ class HexMBSO(Geometry):
         '''Creates a geometry object based on an existing structure saved in a .fsp sim file.
         For use with analysis only, as will put dummy parameters for inputs related to optimization'''
 
-        params = HexagonMetasurface.get_params_from_existing_simulation(filename, get_wavelengths)
+        params = HexMBSO.get_params_from_existing_simulation(filename, get_wavelengths)
 
-        geom = HexagonMetasurface(posx = params['posx'], posy = params['posy'], r = params['r'], 
+        geom = HexMBSO(posx = params['posx'], posy = params['posy'], r = params['r'], 
             min_feature_size = 0, z = params['z'], h = params['h'], eps_in = 1, eps_out = 2.4**2, 
             scaling_factor = 1, limit_nearest_neighbor_cons = False)
 

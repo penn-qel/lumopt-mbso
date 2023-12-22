@@ -432,9 +432,9 @@ class EllipseMBSO(Geometry):
         '''Creates a geometry object based on an existing structure saved in a .fsp sim file.
         For use with analysis only, as will put dummy parameters for inputs related to optimization'''
 
-        params = MovingMetasurface3D.get_params_from_existing_simulation(filename, get_wavelengths)
+        params = EllipseMBSO.get_params_from_existing_simulation(filename, get_wavelengths)
 
-        geom = MovingMetasurface3D(posx = params['posx'], posy = params['posy'], rx = params['rx'], ry = params['ry'], 
+        geom = EllipseMBSO(posx = params['posx'], posy = params['posy'], rx = params['rx'], ry = params['ry'], 
             min_feature_size = 0, z = params['z'], h = params['h'], eps_in = 1, eps_out = 2.4**2, 
             phi = params['phi'], scaling_factor = 1, phi_scaling = 1, limit_nearest_neighbor_cons = False)
 

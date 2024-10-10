@@ -2,7 +2,11 @@
 
 This repository contains an expansion to the Lumopt repository ([Docs](https://lumopt.readthedocs.io/en/latest/)|[Github](https://github.com/chriskeraly/lumopt)|[Lumerical](https://www.lumerical.com/solutions/inverse-design/)) for adjoint optimizations using Lumerical. The main new features of this repository are free-space figures of merit and parameterizations for many-body shape optimizations on arrays of simple objects.
 
-This repository is released under a MIT license. If you use this repository in published work, please cite: [publication pending]. As much of this work is based on Lumopt, consider citing [their work](https://www.osapublishing.org/oe/abstract.cfm?uri=oe-21-18-21693) as well. 
+This repository is released under a MIT license. If you use this repository in published work, please cite our paper:
+
+>Amelia R. Klein, Nader Engheta, and Lee C. Bassett, "Designing metasurface optical interfaces for solid-state qubits using many-body adjoint shape optimization," Opt. Express 32, 38504-38515 (2024) [https://doi.org/10.1364/OE.522501](https://doi.org/10.1364/OE.522501)
+
+As much of this work is based on Lumopt, consider citing [their work](https://www.osapublishing.org/oe/abstract.cfm?uri=oe-21-18-21693) as well. 
 
 ## Dependencies
 
